@@ -28,6 +28,10 @@ private:
 	RID canvas_item;
 	Ref<ImageTexture> font_texture;
 
+	// Font configuration
+	float font_size;
+	String chinese_font_path;
+
 	// Input state
 	Vector2 mouse_pos;
 	bool mouse_buttons[5];
@@ -226,6 +230,10 @@ public:
 	void set_next_window_size(const Vector2 &size, int cond = 0);
 	void set_next_window_collapsed(bool collapsed, int cond = 0);
 	void set_next_window_focus();
+
+	// Font configuration
+	void set_chinese_font_path(const String &path);
+	void set_font_size(float size);
 
 	// Internal - not exposed to GDScript
 	ImGuiContext *get_context_internal() { return imgui_context; }

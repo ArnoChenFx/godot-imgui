@@ -10,6 +10,9 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include "fonts/Simhei.cpp"
+#include "fonts/Roboto_Medium.cpp"
+
 using namespace godot;
 
 void ImGuiGodot::_bind_methods() {
@@ -189,13 +192,19 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_next_window_size", "size", "cond"), &ImGuiGodot::set_next_window_size, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_next_window_collapsed", "collapsed", "cond"), &ImGuiGodot::set_next_window_collapsed, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_next_window_focus"), &ImGuiGodot::set_next_window_focus);
+
+	// Font configuration
+	ClassDB::bind_method(D_METHOD("set_chinese_font_path", "path"), &ImGuiGodot::set_chinese_font_path);
+	ClassDB::bind_method(D_METHOD("set_font_size", "size"), &ImGuiGodot::set_font_size);
 }
 
 ImGuiGodot::ImGuiGodot() {
 	initialized = false;
+	has_pending_frame = false;
 	imgui_context = nullptr;
 	time = 0.0;
 	mouse_pos = Vector2(0, 0);
+	font_size = 14.0f;
 
 	for (int i = 0; i < 5; i++) {
 		mouse_buttons[i] = false;
@@ -231,11 +240,7 @@ void ImGuiGodot::_ready() {
 	setup_imgui_style();
 	create_fonts_texture();
 
-	// Prepare a new frame before any node try use it
-	get_tree()->connect("process_frame", Callable(this, "begin_frame"));
-
-	// Execute process later to call end_frame() after all nodes
-	set_process_priority(100);
+	// IO updates in _process, frame lifecycle controlled by user
 
 	UtilityFunctions::print("ImGui-Godot initialized");
 	initialized = true;
@@ -264,11 +269,6 @@ void ImGuiGodot::_process(double delta) {
 	// Update mouse buttons
 	for (int i = 0; i < 5; i++) {
 		io.MouseDown[i] = mouse_buttons[i];
-	}
-
-	if (has_pending_frame) {
-		end_frame();
-		has_pending_frame = false;
 	}
 }
 
@@ -401,9 +401,8 @@ void ImGuiGodot::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_DRAW: {
 			if (initialized && !Engine::get_singleton()->is_editor_hint()) {
-				// Render ImGui frame
-				ImGui::Render();
 				render_draw_data();
+				queue_redraw();
 			}
 			break;
 		}
@@ -416,6 +415,22 @@ void ImGuiGodot::setup_imgui_style() {
 
 void ImGuiGodot::create_fonts_texture() {
 	ImGuiIO &io = ImGui::GetIO();
+
+	// Load Roboto Medium as base font (Latin characters)
+	io.Fonts->AddFontFromMemoryCompressedTTF(Roboto_Medium_compressed_data, Roboto_Medium_compressed_size, font_size);
+
+	// Merge Chinese font into the default font
+	ImFontConfig cjk_cfg;
+	cjk_cfg.MergeMode = true;
+	cjk_cfg.SizePixels = font_size;
+
+	if (chinese_font_path.is_empty()) {
+		// Use embedded SimHei font
+		io.Fonts->AddFontFromMemoryCompressedTTF(Simhei_compressed_data, Simhei_compressed_size, font_size, &cjk_cfg, io.Fonts->GetGlyphRangesChineseFull());
+	} else {
+		// Use user-specified font file
+		io.Fonts->AddFontFromFileTTF(chinese_font_path.utf8().get_data(), font_size, &cjk_cfg, io.Fonts->GetGlyphRangesChineseFull());
+	}
 
 	unsigned char *pixels;
 	int width, height;
@@ -559,11 +574,12 @@ void ImGuiGodot::begin_frame() {
 }
 
 void ImGuiGodot::end_frame() {
-	if (!initialized) {
+	if (!initialized || !has_pending_frame) {
 		return;
 	}
 	ImGui::Render();
 	queue_redraw();
+	has_pending_frame = false;
 }
 
 // Demo, Debug, Information
@@ -1408,4 +1424,15 @@ void ImGuiGodot::set_next_window_focus() {
 	if (!initialized)
 		return;
 	ImGui::SetNextWindowFocus();
+}
+
+// Font configuration
+void ImGuiGodot::set_chinese_font_path(const String &path) {
+	chinese_font_path = path;
+}
+
+void ImGuiGodot::set_font_size(float size) {
+	if (size > 0.0f) {
+		font_size = size;
+	}
 }
