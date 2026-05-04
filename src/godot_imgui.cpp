@@ -191,19 +191,43 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_next_window_size", "size", "cond"), &ImGuiGodot::set_next_window_size, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_next_window_collapsed", "collapsed", "cond"), &ImGuiGodot::set_next_window_collapsed, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_next_window_focus"), &ImGuiGodot::set_next_window_focus);
+	ClassDB::bind_method(D_METHOD("set_next_window_dock_id", "dock_id", "cond"), &ImGuiGodot::set_next_window_dock_id, DEFVAL(0));
 
 	// Enable/disable
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &ImGuiGodot::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &ImGuiGodot::is_enabled);
+
+	// Dockspace control
+	ClassDB::bind_method(D_METHOD("set_use_dockspace", "use"), &ImGuiGodot::set_use_dockspace);
+	ClassDB::bind_method(D_METHOD("is_use_dockspace"), &ImGuiGodot::is_use_dockspace);
+
+	// Docking
+	ClassDB::bind_method(D_METHOD("get_main_viewport_id"), &ImGuiGodot::get_main_viewport_id);
+	ClassDB::bind_method(D_METHOD("dock_space", "id", "size", "flags"), &ImGuiGodot::dock_space);
+	ClassDB::bind_method(D_METHOD("dock_builder_add_node", "node_id", "flags"), &ImGuiGodot::dock_builder_add_node, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("dock_builder_remove_node", "node_id"), &ImGuiGodot::dock_builder_remove_node);
+	ClassDB::bind_method(D_METHOD("dock_builder_set_node_pos", "node_id", "pos"), &ImGuiGodot::dock_builder_set_node_pos);
+	ClassDB::bind_method(D_METHOD("dock_builder_set_node_size", "node_id", "size"), &ImGuiGodot::dock_builder_set_node_size);
+	ClassDB::bind_method(D_METHOD("dock_builder_split_node", "node_id", "split_dir", "ratio"), &ImGuiGodot::dock_builder_split_node);
+	ClassDB::bind_method(D_METHOD("dock_builder_dock_window", "window_name", "node_id"), &ImGuiGodot::dock_builder_dock_window);
+	ClassDB::bind_method(D_METHOD("dock_builder_finish", "node_id"), &ImGuiGodot::dock_builder_finish);
+	ClassDB::bind_method(D_METHOD("dock_builder_get_central_node", "node_id"), &ImGuiGodot::dock_builder_get_central_node);
+	ClassDB::bind_method(D_METHOD("get_dock_space_id"), &ImGuiGodot::get_dock_space_id);
 
 	// Font configuration
 	ClassDB::bind_method(D_METHOD("set_chinese_font_path", "path"), &ImGuiGodot::set_chinese_font_path);
 	ClassDB::bind_method(D_METHOD("set_font_size", "size"), &ImGuiGodot::set_font_size);
 }
 
+int ImGuiGodot::get_dock_space_id() const {
+	return (int)dock_space_id;
+}
+
 ImGuiGodot::ImGuiGodot() {
 	initialized = false;
 	enabled = true;
+	dock_space_id = 0;
+	use_dockspace = true;
 	imgui_context = nullptr;
 	time = 0.0;
 	mouse_pos = Vector2(0, 0);
@@ -231,10 +255,17 @@ void ImGuiGodot::_ready() {
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // 启用 Docking
 
 	// Setup display size
-	Viewport *viewport = get_viewport();
-	if (viewport) {
-		Rect2 rect = viewport->get_visible_rect();
-		io.DisplaySize = ImVec2(rect.size.x, rect.size.y);
+	if (Engine::get_singleton()->is_editor_hint()) {
+		Vector2 size = get_size();
+		if (size.x > 0 && size.y > 0) {
+			io.DisplaySize = ImVec2(size.x, size.y);
+		}
+	} else {
+		Viewport *viewport = get_viewport();
+		if (viewport) {
+			Rect2 rect = viewport->get_visible_rect();
+			io.DisplaySize = ImVec2(rect.size.x, rect.size.y);
+		}
 	}
 
 	setup_imgui_style();
@@ -280,7 +311,9 @@ void ImGuiGodot::_process(double delta) {
 
 	// Auto-manage frame lifecycle — scripts hook into on_imgui_frame signal
 	ImGui::NewFrame();
-	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+	if (use_dockspace) {
+		dock_space_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+	}
 
 	emit_signal("on_imgui_frame");
 
@@ -1427,6 +1460,10 @@ void ImGuiGodot::set_next_window_focus() {
 	ImGui::SetNextWindowFocus();
 }
 
+void ImGuiGodot::set_next_window_dock_id(int dock_id, int cond) {
+	ImGui::SetNextWindowDockID((ImGuiID)dock_id, cond);
+}
+
 // Enable/disable
 void ImGuiGodot::set_enabled(bool p_enabled) {
 	enabled = p_enabled;
@@ -1434,6 +1471,64 @@ void ImGuiGodot::set_enabled(bool p_enabled) {
 
 bool ImGuiGodot::is_enabled() const {
 	return enabled;
+}
+
+// Dockspace
+void ImGuiGodot::set_use_dockspace(bool p_use) {
+	use_dockspace = p_use;
+}
+
+bool ImGuiGodot::is_use_dockspace() const {
+	return use_dockspace;
+}
+
+// Docking
+int ImGuiGodot::get_main_viewport_id() const {
+	return (int)ImGui::GetMainViewport()->ID;
+}
+
+int ImGuiGodot::dock_space(int id, const Vector2 &size, int flags) {
+	return (int)ImGui::DockSpace((ImGuiID)id, ImVec2(size.x, size.y), flags);
+}
+
+int ImGuiGodot::dock_builder_add_node(int node_id, int flags) {
+	ImGuiID result = ImGui::DockBuilderAddNode((ImGuiID)node_id, (ImGuiDockNodeFlags)flags);
+	return (int)result;
+}
+
+void ImGuiGodot::dock_builder_remove_node(int node_id) {
+	ImGui::DockBuilderRemoveNode((ImGuiID)node_id);
+}
+
+void ImGuiGodot::dock_builder_set_node_pos(int node_id, const Vector2 &pos) {
+	ImGui::DockBuilderSetNodePos((ImGuiID)node_id, ImVec2(pos.x, pos.y));
+}
+
+void ImGuiGodot::dock_builder_set_node_size(int node_id, const Vector2 &size) {
+	ImGui::DockBuilderSetNodeSize((ImGuiID)node_id, ImVec2(size.x, size.y));
+}
+
+Array ImGuiGodot::dock_builder_split_node(int node_id, int split_dir, float ratio) {
+	ImGuiID id_at_dir, id_at_opposite;
+	ImGuiID result = ImGui::DockBuilderSplitNode((ImGuiID)node_id, (ImGuiDir)split_dir, ratio, &id_at_dir, &id_at_opposite);
+	Array ret;
+	ret.append((int)result);
+	ret.append((int)id_at_dir);
+	ret.append((int)id_at_opposite);
+	return ret;
+}
+
+void ImGuiGodot::dock_builder_dock_window(const String &window_name, int node_id) {
+	ImGui::DockBuilderDockWindow(window_name.utf8().get_data(), (ImGuiID)node_id);
+}
+
+void ImGuiGodot::dock_builder_finish(int node_id) {
+	ImGui::DockBuilderFinish((ImGuiID)node_id);
+}
+
+int ImGuiGodot::dock_builder_get_central_node(int node_id) {
+	ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode((ImGuiID)node_id);
+	return node ? (int)node->ID : 0;
 }
 
 // Font configuration

@@ -13,6 +13,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <../imgui/imgui.h>
+#include <../imgui/imgui_internal.h>
 
 namespace godot {
 
@@ -22,6 +23,8 @@ class ImGuiGodot : public Control {
 private:
 	bool initialized;
 	bool enabled;
+	bool use_dockspace;
+	ImGuiID dock_space_id;
 	ImGuiContext *imgui_context;
 	double time;
 
@@ -58,6 +61,10 @@ public:
 	// Enable/disable
 	void set_enabled(bool p_enabled);
 	bool is_enabled() const;
+
+	// Dockspace
+	void set_use_dockspace(bool p_use);
+	bool is_use_dockspace() const;
 
 	// Demo, Debug, Information
 	void show_demo_window(bool show = true);
@@ -231,6 +238,20 @@ public:
 	void set_next_window_size(const Vector2 &size, int cond = 0);
 	void set_next_window_collapsed(bool collapsed, int cond = 0);
 	void set_next_window_focus();
+	void set_next_window_dock_id(int dock_id, int cond = 0);
+
+	// Docking
+	int get_dock_space_id() const;
+	int get_main_viewport_id() const;
+	int dock_space(int id, const Vector2 &size, int flags);
+	int dock_builder_add_node(int node_id, int flags);
+	void dock_builder_remove_node(int node_id);
+	void dock_builder_set_node_pos(int node_id, const Vector2 &pos);
+	void dock_builder_set_node_size(int node_id, const Vector2 &size);
+	Array dock_builder_split_node(int node_id, int split_dir, float ratio);
+	void dock_builder_dock_window(const String &window_name, int node_id);
+	void dock_builder_finish(int node_id);
+	int dock_builder_get_central_node(int node_id);
 
 	// Font configuration
 	void set_chinese_font_path(const String &path);
