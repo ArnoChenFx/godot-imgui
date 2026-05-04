@@ -28,7 +28,7 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("show_style_editor"), &ImGuiGodot::show_style_editor);
 
 	// Window functions
-	ClassDB::bind_method(D_METHOD("begin", "name", "has_close_button"), &ImGuiGodot::begin, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("begin", "name", "has_close_button", "window_flags"), &ImGuiGodot::begin, DEFVAL(false), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("end"), &ImGuiGodot::end);
 	ClassDB::bind_method(D_METHOD("begin_child", "str_id", "size", "child_flags", "window_flags"), &ImGuiGodot::begin_child, DEFVAL(Vector2(0, 0)), DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("end_child"), &ImGuiGodot::end_child);
@@ -755,15 +755,15 @@ void ImGuiGodot::show_style_editor() {
 // ============================================================================
 
 // Window functions
-bool ImGuiGodot::begin(const String &name, bool has_close_button) {
+bool ImGuiGodot::begin(const String &name, bool has_close_button, int window_flags) {
 	if (!initialized)
 		return false;
 
 	if (has_close_button) {
 		bool open = true;
-		return ImGui::Begin(name.utf8().get_data(), &open);
+		return ImGui::Begin(name.utf8().get_data(), &open, window_flags);
 	} else {
-		return ImGui::Begin(name.utf8().get_data(), nullptr);
+		return ImGui::Begin(name.utf8().get_data(), nullptr, window_flags);
 	}
 }
 

@@ -75,7 +75,7 @@ public:
 	void show_style_editor();
 
 	// Window functions
-	bool begin(const String &name, bool has_close_button = false);
+	bool begin(const String &name, bool has_close_button = false, int window_flags = 0);
 	void end();
 	bool begin_child(const String &str_id, const Vector2 &size = Vector2(0, 0), int child_flags = 0, int window_flags = 0);
 	void end_child();
