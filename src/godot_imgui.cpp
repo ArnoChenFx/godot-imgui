@@ -1427,6 +1427,15 @@ void ImGuiGodot::set_next_window_focus() {
 	ImGui::SetNextWindowFocus();
 }
 
+// Enable/disable
+void ImGuiGodot::set_enabled(bool p_enabled) {
+	enabled = p_enabled;
+}
+
+bool ImGuiGodot::is_enabled() const {
+	return enabled;
+}
+
 // Font configuration
 void ImGuiGodot::set_chinese_font_path(const String &path) {
 	chinese_font_path = path;
