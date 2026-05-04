@@ -14,6 +14,7 @@
 
 #include <../imgui/imgui.h>
 #include <../imgui/imgui_internal.h>
+#include <../imgui-node-editor/imgui_node_editor.h>
 
 namespace godot {
 
@@ -31,6 +32,7 @@ private:
 	// Rendering
 	RID canvas_item;
 	Ref<ImageTexture> font_texture;
+	Vector<RID> child_canvas_items;
 
 	// Font configuration
 	float font_size;
@@ -252,6 +254,84 @@ public:
 	void dock_builder_dock_window(const String &window_name, int node_id);
 	void dock_builder_finish(int node_id);
 	int dock_builder_get_central_node(int node_id);
+
+	// Node Editor - Lifecycle
+	int64_t node_editor_create_editor();
+	void node_editor_destroy_editor(int64_t editor_context);
+	void node_editor_set_current_editor(int64_t editor_context);
+
+	// Node Editor - Frame
+	void node_editor_begin(const String &id, const Vector2 &size = Vector2(0, 0));
+	void node_editor_end();
+
+	// Node Editor - Nodes
+	void node_editor_begin_node(int64_t id);
+	void node_editor_end_node();
+	void node_editor_set_node_position(int64_t id, const Vector2 &pos);
+	Vector2 node_editor_get_node_position(int64_t id);
+	Vector2 node_editor_get_node_size(int64_t id);
+	void node_editor_center_node_on_screen(int64_t id);
+
+	// Node Editor - Pins
+	void node_editor_begin_pin(int64_t id, int kind);
+	void node_editor_end_pin();
+	void node_editor_pin_rect(const Vector2 &a, const Vector2 &b);
+	void node_editor_pin_pivot_rect(const Vector2 &a, const Vector2 &b);
+	void node_editor_pin_pivot_alignment(const Vector2 &alignment);
+
+	// Node Editor - Links
+	bool node_editor_link(int64_t id, int64_t start_pin_id, int64_t end_pin_id, const Color &color = Color(1, 1, 1, 1), float thickness = 1.0f);
+	bool node_editor_delete_link(int64_t id);
+	void node_editor_flow(int64_t link_id, int direction = 0);
+
+	// Node Editor - Create Interaction
+	bool node_editor_begin_create(const Color &color = Color(1, 1, 1, 1), float thickness = 1.0f);
+	void node_editor_end_create();
+	Array node_editor_query_new_link();
+	Array node_editor_query_new_node();
+	bool node_editor_accept_new_item();
+	void node_editor_reject_new_item();
+
+	// Node Editor - Delete Interaction
+	bool node_editor_begin_delete();
+	void node_editor_end_delete();
+	Array node_editor_query_deleted_link();
+	Array node_editor_query_deleted_node();
+	bool node_editor_accept_deleted_item();
+	void node_editor_reject_deleted_item();
+
+	// Node Editor - Selection
+	int node_editor_get_selected_node_count();
+	PackedInt64Array node_editor_get_selected_nodes(int max_count = 256);
+	bool node_editor_is_node_selected(int64_t id);
+	void node_editor_select_node(int64_t id, bool append = false);
+	void node_editor_clear_selection();
+
+	// Node Editor - Hover / Click
+	int64_t node_editor_get_hovered_node();
+	int64_t node_editor_get_hovered_pin();
+	int64_t node_editor_get_hovered_link();
+	int64_t node_editor_get_double_clicked_node();
+	bool node_editor_show_background_context_menu();
+	Array node_editor_show_node_context_menu();
+
+	// Node Editor - Navigation
+	void node_editor_navigate_to_content(float duration = -1.0f);
+	void node_editor_navigate_to_selection(bool zoom_in = false, float duration = -1.0f);
+	float node_editor_get_current_zoom();
+
+	// Node Editor - Style
+	void node_editor_push_style_color(int idx, const Color &color);
+	void node_editor_pop_style_color(int count = 1);
+	void node_editor_push_style_var_float(int idx, float val);
+	void node_editor_push_style_var_vec2(int idx, const Vector2 &val);
+	void node_editor_pop_style_var(int count = 1);
+
+	// Node Editor - Utility
+	void node_editor_suspend();
+	void node_editor_resume();
+	Vector2 node_editor_screen_to_canvas(const Vector2 &pos);
+	Vector2 node_editor_canvas_to_screen(const Vector2 &pos);
 
 	// Font configuration
 	void set_chinese_font_path(const String &path);

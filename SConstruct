@@ -32,9 +32,10 @@ Run the following command to download godot-cpp:
 
 env = SConscript("godot-cpp/SConstruct", {"env": env, "customs": customs})
 
-env.Append(CPPPATH=["src/"])
+env.Append(CPPPATH=["src/", "imgui/", "imgui-node-editor/"])
 sources = Glob("src/*.cpp")
 sources += Glob("imgui/*.cpp")
+sources += Glob("imgui-node-editor/*.cpp")
 
 if env["target"] in ["editor", "template_debug"]:
     try:

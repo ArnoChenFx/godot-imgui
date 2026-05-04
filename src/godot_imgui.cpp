@@ -1,5 +1,7 @@
 #include "godot_imgui.h"
 
+#include <vector>
+
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
@@ -214,6 +216,84 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("dock_builder_get_central_node", "node_id"), &ImGuiGodot::dock_builder_get_central_node);
 	ClassDB::bind_method(D_METHOD("get_dock_space_id"), &ImGuiGodot::get_dock_space_id);
 
+	// Node Editor - Lifecycle
+	ClassDB::bind_method(D_METHOD("node_editor_create_editor"), &ImGuiGodot::node_editor_create_editor);
+	ClassDB::bind_method(D_METHOD("node_editor_destroy_editor", "editor_context"), &ImGuiGodot::node_editor_destroy_editor);
+	ClassDB::bind_method(D_METHOD("node_editor_set_current_editor", "editor_context"), &ImGuiGodot::node_editor_set_current_editor);
+
+	// Node Editor - Frame
+	ClassDB::bind_method(D_METHOD("node_editor_begin", "id", "size"), &ImGuiGodot::node_editor_begin, DEFVAL(Vector2(0, 0)));
+	ClassDB::bind_method(D_METHOD("node_editor_end"), &ImGuiGodot::node_editor_end);
+
+	// Node Editor - Nodes
+	ClassDB::bind_method(D_METHOD("node_editor_begin_node", "id"), &ImGuiGodot::node_editor_begin_node);
+	ClassDB::bind_method(D_METHOD("node_editor_end_node"), &ImGuiGodot::node_editor_end_node);
+	ClassDB::bind_method(D_METHOD("node_editor_set_node_position", "id", "pos"), &ImGuiGodot::node_editor_set_node_position);
+	ClassDB::bind_method(D_METHOD("node_editor_get_node_position", "id"), &ImGuiGodot::node_editor_get_node_position);
+	ClassDB::bind_method(D_METHOD("node_editor_get_node_size", "id"), &ImGuiGodot::node_editor_get_node_size);
+	ClassDB::bind_method(D_METHOD("node_editor_center_node_on_screen", "id"), &ImGuiGodot::node_editor_center_node_on_screen);
+
+	// Node Editor - Pins
+	ClassDB::bind_method(D_METHOD("node_editor_begin_pin", "id", "kind"), &ImGuiGodot::node_editor_begin_pin);
+	ClassDB::bind_method(D_METHOD("node_editor_end_pin"), &ImGuiGodot::node_editor_end_pin);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_rect", "a", "b"), &ImGuiGodot::node_editor_pin_rect);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_rect", "a", "b"), &ImGuiGodot::node_editor_pin_pivot_rect);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_alignment", "alignment"), &ImGuiGodot::node_editor_pin_pivot_alignment);
+
+	// Node Editor - Links
+	ClassDB::bind_method(D_METHOD("node_editor_link", "id", "start_pin_id", "end_pin_id", "color", "thickness"), &ImGuiGodot::node_editor_link, DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("node_editor_delete_link", "id"), &ImGuiGodot::node_editor_delete_link);
+	ClassDB::bind_method(D_METHOD("node_editor_flow", "link_id", "direction"), &ImGuiGodot::node_editor_flow, DEFVAL(0));
+
+	// Node Editor - Create Interaction
+	ClassDB::bind_method(D_METHOD("node_editor_begin_create", "color", "thickness"), &ImGuiGodot::node_editor_begin_create, DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("node_editor_end_create"), &ImGuiGodot::node_editor_end_create);
+	ClassDB::bind_method(D_METHOD("node_editor_query_new_link"), &ImGuiGodot::node_editor_query_new_link);
+	ClassDB::bind_method(D_METHOD("node_editor_query_new_node"), &ImGuiGodot::node_editor_query_new_node);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_new_item"), &ImGuiGodot::node_editor_accept_new_item);
+	ClassDB::bind_method(D_METHOD("node_editor_reject_new_item"), &ImGuiGodot::node_editor_reject_new_item);
+
+	// Node Editor - Delete Interaction
+	ClassDB::bind_method(D_METHOD("node_editor_begin_delete"), &ImGuiGodot::node_editor_begin_delete);
+	ClassDB::bind_method(D_METHOD("node_editor_end_delete"), &ImGuiGodot::node_editor_end_delete);
+	ClassDB::bind_method(D_METHOD("node_editor_query_deleted_link"), &ImGuiGodot::node_editor_query_deleted_link);
+	ClassDB::bind_method(D_METHOD("node_editor_query_deleted_node"), &ImGuiGodot::node_editor_query_deleted_node);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_deleted_item"), &ImGuiGodot::node_editor_accept_deleted_item);
+	ClassDB::bind_method(D_METHOD("node_editor_reject_deleted_item"), &ImGuiGodot::node_editor_reject_deleted_item);
+
+	// Node Editor - Selection
+	ClassDB::bind_method(D_METHOD("node_editor_get_selected_node_count"), &ImGuiGodot::node_editor_get_selected_node_count);
+	ClassDB::bind_method(D_METHOD("node_editor_get_selected_nodes", "max_count"), &ImGuiGodot::node_editor_get_selected_nodes, DEFVAL(256));
+	ClassDB::bind_method(D_METHOD("node_editor_is_node_selected", "id"), &ImGuiGodot::node_editor_is_node_selected);
+	ClassDB::bind_method(D_METHOD("node_editor_select_node", "id", "append"), &ImGuiGodot::node_editor_select_node, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("node_editor_clear_selection"), &ImGuiGodot::node_editor_clear_selection);
+
+	// Node Editor - Hover / Click
+	ClassDB::bind_method(D_METHOD("node_editor_get_hovered_node"), &ImGuiGodot::node_editor_get_hovered_node);
+	ClassDB::bind_method(D_METHOD("node_editor_get_hovered_pin"), &ImGuiGodot::node_editor_get_hovered_pin);
+	ClassDB::bind_method(D_METHOD("node_editor_get_hovered_link"), &ImGuiGodot::node_editor_get_hovered_link);
+	ClassDB::bind_method(D_METHOD("node_editor_get_double_clicked_node"), &ImGuiGodot::node_editor_get_double_clicked_node);
+	ClassDB::bind_method(D_METHOD("node_editor_show_background_context_menu"), &ImGuiGodot::node_editor_show_background_context_menu);
+	ClassDB::bind_method(D_METHOD("node_editor_show_node_context_menu"), &ImGuiGodot::node_editor_show_node_context_menu);
+
+	// Node Editor - Navigation
+	ClassDB::bind_method(D_METHOD("node_editor_navigate_to_content", "duration"), &ImGuiGodot::node_editor_navigate_to_content, DEFVAL(-1.0f));
+	ClassDB::bind_method(D_METHOD("node_editor_navigate_to_selection", "zoom_in", "duration"), &ImGuiGodot::node_editor_navigate_to_selection, DEFVAL(false), DEFVAL(-1.0f));
+	ClassDB::bind_method(D_METHOD("node_editor_get_current_zoom"), &ImGuiGodot::node_editor_get_current_zoom);
+
+	// Node Editor - Style
+	ClassDB::bind_method(D_METHOD("node_editor_push_style_color", "idx", "color"), &ImGuiGodot::node_editor_push_style_color);
+	ClassDB::bind_method(D_METHOD("node_editor_pop_style_color", "count"), &ImGuiGodot::node_editor_pop_style_color, DEFVAL(1));
+	ClassDB::bind_method(D_METHOD("node_editor_push_style_var_float", "idx", "val"), &ImGuiGodot::node_editor_push_style_var_float);
+	ClassDB::bind_method(D_METHOD("node_editor_push_style_var_vec2", "idx", "val"), &ImGuiGodot::node_editor_push_style_var_vec2);
+	ClassDB::bind_method(D_METHOD("node_editor_pop_style_var", "count"), &ImGuiGodot::node_editor_pop_style_var, DEFVAL(1));
+
+	// Node Editor - Utility
+	ClassDB::bind_method(D_METHOD("node_editor_suspend"), &ImGuiGodot::node_editor_suspend);
+	ClassDB::bind_method(D_METHOD("node_editor_resume"), &ImGuiGodot::node_editor_resume);
+	ClassDB::bind_method(D_METHOD("node_editor_screen_to_canvas", "pos"), &ImGuiGodot::node_editor_screen_to_canvas);
+	ClassDB::bind_method(D_METHOD("node_editor_canvas_to_screen", "pos"), &ImGuiGodot::node_editor_canvas_to_screen);
+
 	// Font configuration
 	ClassDB::bind_method(D_METHOD("set_chinese_font_path", "path"), &ImGuiGodot::set_chinese_font_path);
 	ClassDB::bind_method(D_METHOD("set_font_size", "size"), &ImGuiGodot::set_font_size);
@@ -239,6 +319,15 @@ ImGuiGodot::ImGuiGodot() {
 }
 
 ImGuiGodot::~ImGuiGodot() {
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (int i = 0; i < child_canvas_items.size(); i++) {
+		if (child_canvas_items[i].is_valid()) {
+			rs->canvas_item_set_parent(child_canvas_items[i], RID());
+			rs->free_rid(child_canvas_items[i]);
+		}
+	}
+	child_canvas_items.clear();
+
 	if (imgui_context) {
 		ImGui::DestroyContext(imgui_context);
 		imgui_context = nullptr;
@@ -520,28 +609,31 @@ void ImGuiGodot::render_draw_data() {
 		return;
 	}
 
+	draw_data->ScaleClipRects(ImGui::GetIO().DisplayFramebufferScale);
+
 	RID ci = get_canvas_item();
 	RenderingServer *rs = RenderingServer::get_singleton();
+	RID cached_tex_rid = font_texture.is_valid() ? font_texture->get_rid() : RID();
 
-	// Pre-calculate total vertex count to allocate once
-	int total_vtx = 0;
+	// Count total draw commands to size the pool
+	int total_cmds = 0;
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
-		total_vtx += draw_data->CmdLists[n]->IdxBuffer.Size;
+		for (int cmd_i = 0; cmd_i < draw_data->CmdLists[n]->CmdBuffer.Size; cmd_i++) {
+			const ImDrawCmd &pcmd = draw_data->CmdLists[n]->CmdBuffer[cmd_i];
+			if (!pcmd.UserCallback && pcmd.ClipRect.z > pcmd.ClipRect.x && pcmd.ClipRect.w > pcmd.ClipRect.y) {
+				total_cmds++;
+			}
+		}
 	}
 
-	PackedVector2Array all_points;
-	PackedColorArray all_colors;
-	PackedVector2Array all_uvs;
-	all_points.resize(total_vtx);
-	all_colors.resize(total_vtx);
-	all_uvs.resize(total_vtx);
+	// Grow pool if needed
+	while (child_canvas_items.size() < total_cmds) {
+		RID child = rs->canvas_item_create();
+		rs->canvas_item_set_parent(child, ci);
+		child_canvas_items.push_back(child);
+	}
 
-	Vector2 *pts_ptr = all_points.ptrw();
-	Color *col_ptr = all_colors.ptrw();
-	Vector2 *uv_ptr = all_uvs.ptrw();
-
-	int vtx_offset = 0;
-	RID cached_tex_rid = font_texture.is_valid() ? font_texture->get_rid() : RID();
+	int cmd_idx = 0;
 
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
@@ -560,37 +652,40 @@ void ImGuiGodot::render_draw_data() {
 				continue;
 			}
 
-			int cmd_start = vtx_offset;
+			RID child_ci = child_canvas_items[cmd_idx];
+			rs->canvas_item_clear(child_ci);
 
-			// Expand indexed vertices into flat buffer
-			for (unsigned int i = 0; i < pcmd->ElemCount; i++) {
-				const ImDrawVert &v = vtx_buffer[idx_buffer[pcmd->IdxOffset + i]];
-				pts_ptr[vtx_offset] = Vector2(v.pos.x, v.pos.y);
-				col_ptr[vtx_offset] = imgui_col_to_godot(v.col);
-				uv_ptr[vtx_offset] = Vector2(v.uv.x, v.uv.y);
-				vtx_offset++;
-			}
+			// Apply scissor clip
+			rs->canvas_item_set_clip(child_ci, true);
+			rs->canvas_item_set_custom_rect(
+					child_ci, true,
+					Rect2(pcmd->ClipRect.x, pcmd->ClipRect.y,
+							pcmd->ClipRect.z - pcmd->ClipRect.x,
+							pcmd->ClipRect.w - pcmd->ClipRect.y));
 
-			int cmd_count = vtx_offset - cmd_start;
-
-			// Build identity index array
+			// Build vertex arrays from indexed draw data
+			int elem_count = pcmd->ElemCount;
+			PackedVector2Array points;
+			PackedColorArray colors;
+			PackedVector2Array uvs;
 			PackedInt32Array indices;
-			indices.resize(cmd_count);
+			points.resize(elem_count);
+			colors.resize(elem_count);
+			uvs.resize(elem_count);
+			indices.resize(elem_count);
+
+			Vector2 *pts_ptr = points.ptrw();
+			Color *col_ptr = colors.ptrw();
+			Vector2 *uv_ptr = uvs.ptrw();
 			int32_t *idx_ptr = indices.ptrw();
-			for (int i = 0; i < cmd_count; i++) {
+
+			for (unsigned int i = 0; i < (unsigned int)elem_count; i++) {
+				const ImDrawVert &v = vtx_buffer[idx_buffer[pcmd->IdxOffset + i]];
+				pts_ptr[i] = Vector2(v.pos.x, v.pos.y);
+				col_ptr[i] = imgui_col_to_godot(v.col);
+				uv_ptr[i] = Vector2(v.uv.x, v.uv.y);
 				idx_ptr[i] = i;
 			}
-
-			// Slice view into pre-allocated arrays
-			PackedVector2Array cmd_pts;
-			PackedColorArray cmd_cols;
-			PackedVector2Array cmd_uvs;
-			cmd_pts.resize(cmd_count);
-			cmd_cols.resize(cmd_count);
-			cmd_uvs.resize(cmd_count);
-			memcpy(cmd_pts.ptrw(), pts_ptr + cmd_start, cmd_count * sizeof(Vector2));
-			memcpy(cmd_cols.ptrw(), col_ptr + cmd_start, cmd_count * sizeof(Color));
-			memcpy(cmd_uvs.ptrw(), uv_ptr + cmd_start, cmd_count * sizeof(Vector2));
 
 			// Resolve texture
 			ImTextureID tex_id = pcmd->GetTexID();
@@ -600,10 +695,17 @@ void ImGuiGodot::render_draw_data() {
 			}
 
 			rs->canvas_item_add_triangle_array(
-					ci, indices, cmd_pts, cmd_cols, cmd_uvs,
+					child_ci, indices, points, colors, uvs,
 					PackedInt32Array(), PackedFloat32Array(),
 					tex_rid, -1);
+
+			cmd_idx++;
 		}
+	}
+
+	// Clear unused child canvas items
+	for (int i = cmd_idx; i < child_canvas_items.size(); i++) {
+		rs->canvas_item_clear(child_canvas_items[i]);
 	}
 }
 
@@ -1530,6 +1632,357 @@ void ImGuiGodot::dock_builder_finish(int node_id) {
 int ImGuiGodot::dock_builder_get_central_node(int node_id) {
 	ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode((ImGuiID)node_id);
 	return node ? (int)node->ID : 0;
+}
+
+// Node Editor - Lifecycle
+int64_t ImGuiGodot::node_editor_create_editor() {
+	ax::NodeEditor::Config config;
+	auto *ctx = ax::NodeEditor::CreateEditor(&config);
+	return reinterpret_cast<int64_t>(ctx);
+}
+
+void ImGuiGodot::node_editor_destroy_editor(int64_t editor_context) {
+	auto *ctx = reinterpret_cast<ax::NodeEditor::EditorContext*>(editor_context);
+	if (ctx) ax::NodeEditor::DestroyEditor(ctx);
+}
+
+void ImGuiGodot::node_editor_set_current_editor(int64_t editor_context) {
+	auto *ctx = reinterpret_cast<ax::NodeEditor::EditorContext*>(editor_context);
+	ax::NodeEditor::SetCurrentEditor(ctx);
+}
+
+// Node Editor - Frame
+void ImGuiGodot::node_editor_begin(const String &id, const Vector2 &size) {
+	if (!initialized) return;
+	ax::NodeEditor::Begin(id.utf8().get_data(), ImVec2(size.x, size.y));
+}
+
+void ImGuiGodot::node_editor_end() {
+	if (!initialized) return;
+	ax::NodeEditor::End();
+}
+
+// Node Editor - Nodes
+void ImGuiGodot::node_editor_begin_node(int64_t id) {
+	if (!initialized) return;
+	ax::NodeEditor::BeginNode(ax::NodeEditor::NodeId(id));
+}
+
+void ImGuiGodot::node_editor_end_node() {
+	if (!initialized) return;
+	ax::NodeEditor::EndNode();
+}
+
+void ImGuiGodot::node_editor_set_node_position(int64_t id, const Vector2 &pos) {
+	if (!initialized) return;
+	ax::NodeEditor::SetNodePosition(ax::NodeEditor::NodeId(id), ImVec2(pos.x, pos.y));
+}
+
+Vector2 ImGuiGodot::node_editor_get_node_position(int64_t id) {
+	if (!initialized) return Vector2();
+	auto p = ax::NodeEditor::GetNodePosition(ax::NodeEditor::NodeId(id));
+	return Vector2(p.x, p.y);
+}
+
+Vector2 ImGuiGodot::node_editor_get_node_size(int64_t id) {
+	if (!initialized) return Vector2();
+	auto s = ax::NodeEditor::GetNodeSize(ax::NodeEditor::NodeId(id));
+	return Vector2(s.x, s.y);
+}
+
+void ImGuiGodot::node_editor_center_node_on_screen(int64_t id) {
+	if (!initialized) return;
+	ax::NodeEditor::CenterNodeOnScreen(ax::NodeEditor::NodeId(id));
+}
+
+// Node Editor - Pins
+void ImGuiGodot::node_editor_begin_pin(int64_t id, int kind) {
+	if (!initialized) return;
+	ax::NodeEditor::BeginPin(ax::NodeEditor::PinId(id), static_cast<ax::NodeEditor::PinKind>(kind));
+}
+
+void ImGuiGodot::node_editor_end_pin() {
+	if (!initialized) return;
+	ax::NodeEditor::EndPin();
+}
+
+void ImGuiGodot::node_editor_pin_rect(const Vector2 &a, const Vector2 &b) {
+	if (!initialized) return;
+	ax::NodeEditor::PinRect(ImVec2(a.x, a.y), ImVec2(b.x, b.y));
+}
+
+void ImGuiGodot::node_editor_pin_pivot_rect(const Vector2 &a, const Vector2 &b) {
+	if (!initialized) return;
+	ax::NodeEditor::PinPivotRect(ImVec2(a.x, a.y), ImVec2(b.x, b.y));
+}
+
+void ImGuiGodot::node_editor_pin_pivot_alignment(const Vector2 &alignment) {
+	if (!initialized) return;
+	ax::NodeEditor::PinPivotAlignment(ImVec2(alignment.x, alignment.y));
+}
+
+// Node Editor - Links
+bool ImGuiGodot::node_editor_link(int64_t id, int64_t start_pin_id, int64_t end_pin_id, const Color &color, float thickness) {
+	if (!initialized) return false;
+	return ax::NodeEditor::Link(
+		ax::NodeEditor::LinkId(id),
+		ax::NodeEditor::PinId(start_pin_id),
+		ax::NodeEditor::PinId(end_pin_id),
+		ImVec4(color.r, color.g, color.b, color.a),
+		thickness
+	);
+}
+
+bool ImGuiGodot::node_editor_delete_link(int64_t id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::DeleteLink(ax::NodeEditor::LinkId(id));
+}
+
+void ImGuiGodot::node_editor_flow(int64_t link_id, int direction) {
+	if (!initialized) return;
+	ax::NodeEditor::Flow(ax::NodeEditor::LinkId(link_id), static_cast<ax::NodeEditor::FlowDirection>(direction));
+}
+
+// Node Editor - Create Interaction
+bool ImGuiGodot::node_editor_begin_create(const Color &color, float thickness) {
+	if (!initialized) return false;
+	return ax::NodeEditor::BeginCreate(ImVec4(color.r, color.g, color.b, color.a), thickness);
+}
+
+void ImGuiGodot::node_editor_end_create() {
+	if (!initialized) return;
+	ax::NodeEditor::EndCreate();
+}
+
+Array ImGuiGodot::node_editor_query_new_link() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::PinId start_id, end_id;
+	bool ok = ax::NodeEditor::QueryNewLink(&start_id, &end_id);
+	result.push_back(ok);
+	result.push_back((int64_t)start_id.Get());
+	result.push_back((int64_t)end_id.Get());
+	return result;
+}
+
+Array ImGuiGodot::node_editor_query_new_node() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::PinId pin_id;
+	bool ok = ax::NodeEditor::QueryNewNode(&pin_id);
+	result.push_back(ok);
+	result.push_back((int64_t)pin_id.Get());
+	return result;
+}
+
+bool ImGuiGodot::node_editor_accept_new_item() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptNewItem();
+}
+
+void ImGuiGodot::node_editor_reject_new_item() {
+	if (!initialized) return;
+	ax::NodeEditor::RejectNewItem();
+}
+
+// Node Editor - Delete Interaction
+bool ImGuiGodot::node_editor_begin_delete() {
+	if (!initialized) return false;
+	return ax::NodeEditor::BeginDelete();
+}
+
+void ImGuiGodot::node_editor_end_delete() {
+	if (!initialized) return;
+	ax::NodeEditor::EndDelete();
+}
+
+Array ImGuiGodot::node_editor_query_deleted_link() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		result.push_back(0);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::LinkId link_id;
+	ax::NodeEditor::PinId start_id, end_id;
+	bool ok = ax::NodeEditor::QueryDeletedLink(&link_id, &start_id, &end_id);
+	result.push_back(ok);
+	result.push_back((int64_t)link_id.Get());
+	result.push_back((int64_t)start_id.Get());
+	result.push_back((int64_t)end_id.Get());
+	return result;
+}
+
+Array ImGuiGodot::node_editor_query_deleted_node() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::NodeId node_id;
+	bool ok = ax::NodeEditor::QueryDeletedNode(&node_id);
+	result.push_back(ok);
+	result.push_back((int64_t)node_id.Get());
+	return result;
+}
+
+bool ImGuiGodot::node_editor_accept_deleted_item() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptDeletedItem();
+}
+
+void ImGuiGodot::node_editor_reject_deleted_item() {
+	if (!initialized) return;
+	ax::NodeEditor::RejectDeletedItem();
+}
+
+// Node Editor - Selection
+int ImGuiGodot::node_editor_get_selected_node_count() {
+	if (!initialized) return 0;
+	return ax::NodeEditor::GetSelectedObjectCount();
+}
+
+PackedInt64Array ImGuiGodot::node_editor_get_selected_nodes(int max_count) {
+	PackedInt64Array result;
+	if (!initialized) return result;
+	std::vector<ax::NodeEditor::NodeId> nodes(max_count);
+	int count = ax::NodeEditor::GetSelectedNodes(nodes.data(), max_count);
+	for (int i = 0; i < count; i++) {
+		result.push_back((int64_t)nodes[i].Get());
+	}
+	return result;
+}
+
+bool ImGuiGodot::node_editor_is_node_selected(int64_t id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::IsNodeSelected(ax::NodeEditor::NodeId(id));
+}
+
+void ImGuiGodot::node_editor_select_node(int64_t id, bool append) {
+	if (!initialized) return;
+	ax::NodeEditor::SelectNode(ax::NodeEditor::NodeId(id), append);
+}
+
+void ImGuiGodot::node_editor_clear_selection() {
+	if (!initialized) return;
+	ax::NodeEditor::ClearSelection();
+}
+
+// Node Editor - Hover / Click
+int64_t ImGuiGodot::node_editor_get_hovered_node() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetHoveredNode().Get();
+}
+
+int64_t ImGuiGodot::node_editor_get_hovered_pin() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetHoveredPin().Get();
+}
+
+int64_t ImGuiGodot::node_editor_get_hovered_link() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetHoveredLink().Get();
+}
+
+int64_t ImGuiGodot::node_editor_get_double_clicked_node() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetDoubleClickedNode().Get();
+}
+
+bool ImGuiGodot::node_editor_show_background_context_menu() {
+	if (!initialized) return false;
+	return ax::NodeEditor::ShowBackgroundContextMenu();
+}
+
+Array ImGuiGodot::node_editor_show_node_context_menu() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::NodeId node_id;
+	bool ok = ax::NodeEditor::ShowNodeContextMenu(&node_id);
+	result.push_back(ok);
+	result.push_back((int64_t)node_id.Get());
+	return result;
+}
+
+// Node Editor - Navigation
+void ImGuiGodot::node_editor_navigate_to_content(float duration) {
+	if (!initialized) return;
+	ax::NodeEditor::NavigateToContent(duration);
+}
+
+void ImGuiGodot::node_editor_navigate_to_selection(bool zoom_in, float duration) {
+	if (!initialized) return;
+	ax::NodeEditor::NavigateToSelection(zoom_in, duration);
+}
+
+float ImGuiGodot::node_editor_get_current_zoom() {
+	if (!initialized) return 1.0f;
+	return ax::NodeEditor::GetCurrentZoom();
+}
+
+// Node Editor - Style
+void ImGuiGodot::node_editor_push_style_color(int idx, const Color &color) {
+	if (!initialized) return;
+	ax::NodeEditor::PushStyleColor(static_cast<ax::NodeEditor::StyleColor>(idx), ImVec4(color.r, color.g, color.b, color.a));
+}
+
+void ImGuiGodot::node_editor_pop_style_color(int count) {
+	if (!initialized) return;
+	ax::NodeEditor::PopStyleColor(count);
+}
+
+void ImGuiGodot::node_editor_push_style_var_float(int idx, float val) {
+	if (!initialized) return;
+	ax::NodeEditor::PushStyleVar(static_cast<ax::NodeEditor::StyleVar>(idx), val);
+}
+
+void ImGuiGodot::node_editor_push_style_var_vec2(int idx, const Vector2 &val) {
+	if (!initialized) return;
+	ax::NodeEditor::PushStyleVar(static_cast<ax::NodeEditor::StyleVar>(idx), ImVec2(val.x, val.y));
+}
+
+void ImGuiGodot::node_editor_pop_style_var(int count) {
+	if (!initialized) return;
+	ax::NodeEditor::PopStyleVar(count);
+}
+
+// Node Editor - Utility
+void ImGuiGodot::node_editor_suspend() {
+	if (!initialized) return;
+	ax::NodeEditor::Suspend();
+}
+
+void ImGuiGodot::node_editor_resume() {
+	if (!initialized) return;
+	ax::NodeEditor::Resume();
+}
+
+Vector2 ImGuiGodot::node_editor_screen_to_canvas(const Vector2 &pos) {
+	if (!initialized) return pos;
+	auto p = ax::NodeEditor::ScreenToCanvas(ImVec2(pos.x, pos.y));
+	return Vector2(p.x, p.y);
+}
+
+Vector2 ImGuiGodot::node_editor_canvas_to_screen(const Vector2 &pos) {
+	if (!initialized) return pos;
+	auto p = ax::NodeEditor::CanvasToScreen(ImVec2(pos.x, pos.y));
+	return Vector2(p.x, p.y);
 }
 
 // Font configuration
