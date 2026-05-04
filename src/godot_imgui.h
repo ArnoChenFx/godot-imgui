@@ -21,6 +21,7 @@ class ImGuiGodot : public Control {
 
 private:
 	bool initialized;
+	bool enabled;
 	ImGuiContext *imgui_context;
 	double time;
 
@@ -53,6 +54,10 @@ public:
 	void _process(double delta) override;
 	void _input(const Ref<InputEvent> &event) override;
 	void _notification(int p_what);
+
+	// Enable/disable
+	void set_enabled(bool p_enabled);
+	bool is_enabled() const;
 
 	// Demo, Debug, Information
 	void show_demo_window(bool show = true);

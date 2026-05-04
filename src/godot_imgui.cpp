@@ -192,6 +192,10 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_next_window_collapsed", "collapsed", "cond"), &ImGuiGodot::set_next_window_collapsed, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("set_next_window_focus"), &ImGuiGodot::set_next_window_focus);
 
+	// Enable/disable
+	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &ImGuiGodot::set_enabled);
+	ClassDB::bind_method(D_METHOD("is_enabled"), &ImGuiGodot::is_enabled);
+
 	// Font configuration
 	ClassDB::bind_method(D_METHOD("set_chinese_font_path", "path"), &ImGuiGodot::set_chinese_font_path);
 	ClassDB::bind_method(D_METHOD("set_font_size", "size"), &ImGuiGodot::set_font_size);
@@ -199,6 +203,7 @@ void ImGuiGodot::_bind_methods() {
 
 ImGuiGodot::ImGuiGodot() {
 	initialized = false;
+	enabled = true;
 	imgui_context = nullptr;
 	time = 0.0;
 	mouse_pos = Vector2(0, 0);
@@ -242,7 +247,7 @@ void ImGuiGodot::_ready() {
 }
 
 void ImGuiGodot::_process(double delta) {
-	if (!initialized) {
+	if (!initialized || !enabled) {
 		return;
 	}
 
@@ -284,7 +289,7 @@ void ImGuiGodot::_process(double delta) {
 }
 
 void ImGuiGodot::_input(const Ref<InputEvent> &event) {
-	if (!initialized) {
+	if (!initialized || !enabled) {
 		return;
 	}
 
@@ -411,7 +416,7 @@ void ImGuiGodot::_input(const Ref<InputEvent> &event) {
 void ImGuiGodot::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_DRAW: {
-			if (initialized) {
+			if (initialized && enabled) {
 				render_draw_data();
 				queue_redraw();
 			}
