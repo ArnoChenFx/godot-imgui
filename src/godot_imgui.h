@@ -28,8 +28,6 @@ private:
 	// Rendering
 	RID canvas_item;
 	Ref<ImageTexture> font_texture;
-	// Child canvas items reused for per-command clip regions
-	TypedArray<RID> clip_canvas_items;
 
 	// Font configuration
 	float font_size;

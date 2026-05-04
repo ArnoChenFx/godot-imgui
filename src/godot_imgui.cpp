@@ -216,12 +216,6 @@ ImGuiGodot::~ImGuiGodot() {
 		ImGui::DestroyContext(imgui_context);
 		imgui_context = nullptr;
 	}
-
-	RenderingServer *rs = RenderingServer::get_singleton();
-	for (int i = 0; i < clip_canvas_items.size(); i++) {
-		rs->free_rid(clip_canvas_items[i]);
-	}
-	clip_canvas_items.clear();
 }
 
 void ImGuiGodot::_ready() {
@@ -236,7 +230,6 @@ void ImGuiGodot::_ready() {
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // 启用 Docking
-	// io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;  // 启用多视口
 
 	// Setup display size
 	Viewport *viewport = get_viewport();
@@ -478,14 +471,28 @@ void ImGuiGodot::render_draw_data() {
 		return;
 	}
 
+	RID ci = get_canvas_item();
 	RenderingServer *rs = RenderingServer::get_singleton();
-	RID parent_ci = get_canvas_item();
 
-	Vector2 clip_off = Vector2(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
-	Vector2 clip_scale = Vector2(draw_data->FramebufferScale.x, draw_data->FramebufferScale.y);
+	// Pre-calculate total vertex count to allocate once
+	int total_vtx = 0;
+	for (int n = 0; n < draw_data->CmdListsCount; n++) {
+		total_vtx += draw_data->CmdLists[n]->IdxBuffer.Size;
+	}
 
-	// Reuse child canvas items for clip regions
-	size_t child_idx = 0;
+	PackedVector2Array all_points;
+	PackedColorArray all_colors;
+	PackedVector2Array all_uvs;
+	all_points.resize(total_vtx);
+	all_colors.resize(total_vtx);
+	all_uvs.resize(total_vtx);
+
+	Vector2 *pts_ptr = all_points.ptrw();
+	Color *col_ptr = all_colors.ptrw();
+	Vector2 *uv_ptr = all_uvs.ptrw();
+
+	int vtx_offset = 0;
+	RID cached_tex_rid = font_texture.is_valid() ? font_texture->get_rid() : RID();
 
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
@@ -500,86 +507,54 @@ void ImGuiGodot::render_draw_data() {
 				continue;
 			}
 
-			Vector2 clip_min(
-					(pcmd->ClipRect.x - clip_off.x) * clip_scale.x,
-					(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
-			Vector2 clip_max(
-					(pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
-					(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
-
-			if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
+			if (pcmd->ClipRect.z <= pcmd->ClipRect.x || pcmd->ClipRect.w <= pcmd->ClipRect.y) {
 				continue;
 			}
 
-			// Get or create a child canvas item for this clip region
-			RID ci;
-			if (child_idx < clip_canvas_items.size()) {
-				ci = clip_canvas_items[child_idx];
-			} else {
-				ci = rs->canvas_item_create();
-				rs->canvas_item_set_parent(ci, parent_ci);
-				clip_canvas_items.push_back(ci);
+			int cmd_start = vtx_offset;
+
+			// Expand indexed vertices into flat buffer
+			for (unsigned int i = 0; i < pcmd->ElemCount; i++) {
+				const ImDrawVert &v = vtx_buffer[idx_buffer[pcmd->IdxOffset + i]];
+				pts_ptr[vtx_offset] = Vector2(v.pos.x, v.pos.y);
+				col_ptr[vtx_offset] = imgui_col_to_godot(v.col);
+				uv_ptr[vtx_offset] = Vector2(v.uv.x, v.uv.y);
+				vtx_offset++;
 			}
-			child_idx++;
 
-			// Set clip rect on the child canvas item
-			rs->canvas_item_set_clip(ci, true);
-			rs->canvas_item_set_custom_rect(ci, true, Rect2(clip_min, clip_max - clip_min));
-			rs->canvas_item_clear(ci);
+			int cmd_count = vtx_offset - cmd_start;
 
-			// Batch all triangles in this command into arrays
-			unsigned int tri_count = pcmd->ElemCount / 3;
-
-			PackedVector2Array points;
-			PackedColorArray colors;
-			PackedVector2Array uvs;
-			points.resize(tri_count * 3);
-			colors.resize(tri_count * 3);
-			uvs.resize(tri_count * 3);
-
-			Vector2 *pts_ptr = points.ptrw();
-			Color *col_ptr = colors.ptrw();
-			Vector2 *uv_ptr = uvs.ptrw();
-
-			for (unsigned int i = 0; i < tri_count; i++) {
-				const ImDrawVert &v0 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 0]];
-				const ImDrawVert &v1 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 1]];
-				const ImDrawVert &v2 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 2]];
-
-				unsigned int base = i * 3;
-				pts_ptr[base + 0] = Vector2(v0.pos.x, v0.pos.y);
-				pts_ptr[base + 1] = Vector2(v1.pos.x, v1.pos.y);
-				pts_ptr[base + 2] = Vector2(v2.pos.x, v2.pos.y);
-
-				col_ptr[base + 0] = imgui_col_to_godot(v0.col);
-				col_ptr[base + 1] = imgui_col_to_godot(v1.col);
-				col_ptr[base + 2] = imgui_col_to_godot(v2.col);
-
-				uv_ptr[base + 0] = Vector2(v0.uv.x, v0.uv.y);
-				uv_ptr[base + 1] = Vector2(v1.uv.x, v1.uv.y);
-				uv_ptr[base + 2] = Vector2(v2.uv.x, v2.uv.y);
+			// Build identity index array
+			PackedInt32Array indices;
+			indices.resize(cmd_count);
+			int32_t *idx_ptr = indices.ptrw();
+			for (int i = 0; i < cmd_count; i++) {
+				idx_ptr[i] = i;
 			}
+
+			// Slice view into pre-allocated arrays
+			PackedVector2Array cmd_pts;
+			PackedColorArray cmd_cols;
+			PackedVector2Array cmd_uvs;
+			cmd_pts.resize(cmd_count);
+			cmd_cols.resize(cmd_count);
+			cmd_uvs.resize(cmd_count);
+			memcpy(cmd_pts.ptrw(), pts_ptr + cmd_start, cmd_count * sizeof(Vector2));
+			memcpy(cmd_cols.ptrw(), col_ptr + cmd_start, cmd_count * sizeof(Color));
+			memcpy(cmd_uvs.ptrw(), uv_ptr + cmd_start, cmd_count * sizeof(Vector2));
 
 			// Resolve texture
-			Ref<Texture2D> texture;
 			ImTextureID tex_id = pcmd->GetTexID();
-			if (tex_id && font_texture.is_valid() &&
-					tex_id == (ImTextureID)(uintptr_t)font_texture->get_rid().get_id()) {
-				texture = font_texture;
+			RID tex_rid;
+			if (tex_id && tex_id == (ImTextureID)(uintptr_t)cached_tex_rid.get_id()) {
+				tex_rid = cached_tex_rid;
 			}
 
-			// Single draw call per ImDrawCmd instead of per triangle
 			rs->canvas_item_add_triangle_array(
-					ci, PackedInt32Array(), points, colors, uvs,
+					ci, indices, cmd_pts, cmd_cols, cmd_uvs,
 					PackedInt32Array(), PackedFloat32Array(),
-					texture.is_valid() ? texture->get_rid() : RID(),
-					-1);
+					tex_rid, -1);
 		}
-	}
-
-	// Hide unused child canvas items
-	for (size_t i = child_idx; i < clip_canvas_items.size(); i++) {
-		rs->canvas_item_clear(clip_canvas_items[i]);
 	}
 }
 
