@@ -9,8 +9,8 @@
 		Dear ImGui integration for Godot.
 	</brief_description>
 	<description>
-		Provides immediate-mode GUI functions for debugging tools, developer consoles, and in-game editors. Add this node to your scene and call its methods in [method _process] to create ImGui windows and widgets.
-		ImGui uses an immediate-mode paradigm, meaning you create UI every frame. This is perfect for debug tools and dynamic interfaces.
+		Provides immediate-mode GUI functions for debugging tools, developer consoles, and in-game editors. Add this node to your scene, connect to the [signal on_imgui_frame] signal, and draw ImGui windows and widgets in the callback.
+		ImGui uses an immediate-mode paradigm, meaning you recreate the UI every frame. The frame lifecycle (NewFrame/Render) is managed automatically.
 		[b]Example:[/b]
 		[codeblock]
 		var imgui: ImGuiGodot
@@ -19,8 +19,9 @@
 		    imgui = ImGuiGodot.new()
 		    imgui.set_anchors_preset(Control.PRESET_FULL_RECT)
 		    add_child(imgui)
+		    imgui.connect("on_imgui_frame", _on_imgui_frame)
 
-		func _process(_delta):
+		func _on_imgui_frame():
 		    if imgui.begin("My Window"):
 		        imgui.text("Hello, ImGui!")
 		        if imgui.button("Click Me"):
@@ -56,12 +57,6 @@
 			<param index="2" name="flags" type="int" default="0" />
 			<description>
 				Begin a combo box (dropdown list). Must be paired with [method end_combo]. Returns [code]true[/code] if open.
-			</description>
-		</method>
-		<method name="begin_frame">
-			<return type="void" />
-			<description>
-				Manually begin a new ImGui frame. Only needed if you want manual frame control. Normally, frames are managed automatically in [method _process].
 			</description>
 		</method>
 		<method name="begin_group">
@@ -307,12 +302,6 @@
 			<return type="void" />
 			<description>
 				End the combo box. Must be called after [method begin_combo] if it returned [code]true[/code].
-			</description>
-		</method>
-		<method name="end_frame">
-			<return type="void" />
-			<description>
-				Manually end the current ImGui frame and queue rendering. Only needed if you want manual frame control.
 			</description>
 		</method>
 		<method name="end_group">
@@ -945,4 +934,11 @@
 			</description>
 		</method>
 	</methods>
+	<signals>
+		<signal name="on_imgui_frame">
+			<description>
+				Emitted every frame between [code]ImGui::NewFrame()[/code] and [code]ImGui::Render()[/code]. Connect your drawing callbacks to this signal to create ImGui windows and widgets. Multiple scripts can connect independently, each creating their own windows without coordinating frame begin/end calls.
+			</description>
+		</signal>
+	</signals>
 </class>

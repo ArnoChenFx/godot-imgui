@@ -13,11 +13,9 @@ func _ready() -> void:
 	imgui = ImGuiGodot.new()
 	imgui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(imgui)
+	imgui.connect("on_imgui_frame", _on_imgui_frame)
 
-func _process(_delta):
-	if not imgui:
-		return
-
+func _on_imgui_frame():
 	# Show a simple control window
 	if imgui.begin("ImGui Demo Controls"):
 		imgui.text("Toggle ImGui's built-in windows:")

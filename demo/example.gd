@@ -9,10 +9,9 @@ func _ready() -> void:
 	imgui = ImGuiGodot.new()
 	imgui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(imgui)
+	imgui.connect("on_imgui_frame", _on_imgui_frame)
 
-func _process(_delta):
-	if not imgui: return
-
+func _on_imgui_frame():
 	if imgui.begin("GDScript Window"):
 		imgui.text("Welcome to ImGui-Godot!")
 

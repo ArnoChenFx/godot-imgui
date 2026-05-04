@@ -16,9 +16,8 @@
 using namespace godot;
 
 void ImGuiGodot::_bind_methods() {
-	// Frame control
-	ClassDB::bind_method(D_METHOD("begin_frame"), &ImGuiGodot::begin_frame);
-	ClassDB::bind_method(D_METHOD("end_frame"), &ImGuiGodot::end_frame);
+	// Signal emitted between NewFrame and Render, for multi-script ImGui drawing
+	ADD_SIGNAL(MethodInfo("on_imgui_frame"));
 
 	// Demo, Debug, Information
 	ClassDB::bind_method(D_METHOD("show_demo_window", "show"), &ImGuiGodot::show_demo_window, DEFVAL(true));
@@ -200,7 +199,6 @@ void ImGuiGodot::_bind_methods() {
 
 ImGuiGodot::ImGuiGodot() {
 	initialized = false;
-	has_pending_frame = false;
 	imgui_context = nullptr;
 	time = 0.0;
 	mouse_pos = Vector2(0, 0);
@@ -241,7 +239,7 @@ void ImGuiGodot::_ready() {
 	setup_imgui_style();
 	create_fonts_texture();
 
-	// IO updates in _process, frame lifecycle controlled by user
+	set_anchors_and_offsets_preset(Control::LayoutPreset::PRESET_FULL_RECT);
 
 	UtilityFunctions::print("ImGui-Godot initialized");
 	initialized = true;
@@ -271,6 +269,15 @@ void ImGuiGodot::_process(double delta) {
 	for (int i = 0; i < 5; i++) {
 		io.MouseDown[i] = mouse_buttons[i];
 	}
+
+	// Auto-manage frame lifecycle — scripts hook into on_imgui_frame signal
+	ImGui::NewFrame();
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	emit_signal("on_imgui_frame");
+
+	ImGui::Render();
+	queue_redraw();
 }
 
 void ImGuiGodot::_input(const Ref<InputEvent> &event) {
@@ -566,25 +573,6 @@ void ImGuiGodot::update_mouse_cursor() {
 
 	ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
 	// Map ImGui cursor to Godot cursor
-}
-
-void ImGuiGodot::begin_frame() {
-	if (!initialized || has_pending_frame) {
-		return;
-	}
-	ImGui::NewFrame();
-	// ImGui::DockSpaceOverViewport(ImGui::GetMainViewport()->ID);
-	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);  // 中央节点透明
-	has_pending_frame = true;
-}
-
-void ImGuiGodot::end_frame() {
-	if (!initialized || !has_pending_frame) {
-		return;
-	}
-	ImGui::Render();
-	queue_redraw();
-	has_pending_frame = false;
 }
 
 // Demo, Debug, Information

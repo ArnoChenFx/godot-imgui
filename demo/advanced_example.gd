@@ -24,14 +24,15 @@ func _ready() -> void:
 	imgui = ImGuiGodot.new()
 	imgui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(imgui)
+	imgui.connect("on_imgui_frame", _on_imgui_frame)
 
 func _process(delta):
-	if not imgui: return
-
-	# Automatically advance progress
+	# Update progress outside the ImGui frame
 	progress += delta * 0.1
 	if progress > 1.0:
 		progress = 0.0
+
+func _on_imgui_frame():
 
 	# Main window with menu bar
 	if imgui.begin("Advanced ImGui Demo"):
