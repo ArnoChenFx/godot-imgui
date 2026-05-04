@@ -217,10 +217,6 @@ ImGuiGodot::~ImGuiGodot() {
 }
 
 void ImGuiGodot::_ready() {
-	if (Engine::get_singleton()->is_editor_hint()) {
-		return;
-	}
-
 	// Create ImGui context
 	imgui_context = ImGui::CreateContext();
 	ImGui::SetCurrentContext(imgui_context);
@@ -246,7 +242,7 @@ void ImGuiGodot::_ready() {
 }
 
 void ImGuiGodot::_process(double delta) {
-	if (!initialized || Engine::get_singleton()->is_editor_hint()) {
+	if (!initialized) {
 		return;
 	}
 
@@ -255,11 +251,18 @@ void ImGuiGodot::_process(double delta) {
 	ImGuiIO &io = ImGui::GetIO();
 	io.DeltaTime = (float)delta;
 
-	// Update display size
-	Viewport *viewport = get_viewport();
-	if (viewport) {
-		Rect2 rect = viewport->get_visible_rect();
-		io.DisplaySize = ImVec2(rect.size.x, rect.size.y);
+	// Update display size — viewport in runtime, control size in editor
+	if (Engine::get_singleton()->is_editor_hint()) {
+		Vector2 size = get_size();
+		if (size.x > 0 && size.y > 0) {
+			io.DisplaySize = ImVec2(size.x, size.y);
+		}
+	} else {
+		Viewport *viewport = get_viewport();
+		if (viewport) {
+			Rect2 rect = viewport->get_visible_rect();
+			io.DisplaySize = ImVec2(rect.size.x, rect.size.y);
+		}
 	}
 
 	// Update mouse position
@@ -281,16 +284,16 @@ void ImGuiGodot::_process(double delta) {
 }
 
 void ImGuiGodot::_input(const Ref<InputEvent> &event) {
-	if (!initialized || Engine::get_singleton()->is_editor_hint()) {
+	if (!initialized) {
 		return;
 	}
 
 	ImGuiIO &io = ImGui::GetIO();
 
-	// Mouse motion
+	// Mouse motion — adjust to control-local coordinates
 	Ref<InputEventMouseMotion> mouse_motion = event;
 	if (mouse_motion.is_valid()) {
-		mouse_pos = mouse_motion->get_position();
+		mouse_pos = mouse_motion->get_position() - get_global_position();
 	}
 
 	// Mouse buttons
@@ -408,7 +411,7 @@ void ImGuiGodot::_input(const Ref<InputEvent> &event) {
 void ImGuiGodot::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_DRAW: {
-			if (initialized && !Engine::get_singleton()->is_editor_hint()) {
+			if (initialized) {
 				render_draw_data();
 				queue_redraw();
 			}
