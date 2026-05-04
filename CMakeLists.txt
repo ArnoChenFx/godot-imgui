@@ -52,6 +52,7 @@ target_sources(${LIBNAME}
     src/example_class.cpp
     src/example_class.h
 )
+target_compile_definitions(${LIBNAME} PRIVATE IMGUI_HAS_DOCK)
 
 # Fetch a list of the xml files to use for documentation and add to our target
 file(GLOB_RECURSE DOC_XML LIST_DIRECTORIES NO CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/doc_classes/*.xml")

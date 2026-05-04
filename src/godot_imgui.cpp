@@ -229,6 +229,8 @@ void ImGuiGodot::_ready() {
 
 	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;   // 启用 Docking
+	// io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;  // 启用多视口
 
 	// Setup display size
 	Viewport *viewport = get_viewport();
@@ -409,8 +411,11 @@ void ImGuiGodot::_notification(int p_what) {
 	}
 }
 
+void SetupImGuiGruvboxHardStyle();
+
 void ImGuiGodot::setup_imgui_style() {
-	ImGui::StyleColorsDark();
+	// ImGui::StyleColorsDark();
+	SetupImGuiGruvboxHardStyle();
 }
 
 void ImGuiGodot::create_fonts_texture() {
@@ -570,6 +575,8 @@ void ImGuiGodot::begin_frame() {
 		return;
 	}
 	ImGui::NewFrame();
+	// ImGui::DockSpaceOverViewport(ImGui::GetMainViewport()->ID);
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);  // 中央节点透明
 	has_pending_frame = true;
 }
 
@@ -1435,4 +1442,94 @@ void ImGuiGodot::set_font_size(float size) {
 	if (size > 0.0f) {
 		font_size = size;
 	}
+}
+
+// themes
+
+void SetupImGuiGruvboxHardStyle()
+{
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors = style.Colors;
+
+    // --- 1. Sizing and Spacing (Industrial & Square) ---
+    style.WindowPadding = ImVec2(10.0f, 10.0f);
+    style.FramePadding = ImVec2(6.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 4.0f);
+    style.ScrollbarSize = 14.0f;
+    style.GrabMinSize = 12.0f;
+
+    // --- 2. Borders & Rounding (Gruvbox usually looks best with sharp or low rounding) ---
+    style.WindowRounding = 2.0f;
+    style.FrameRounding = 2.0f;
+    style.PopupRounding = 2.0f;
+    style.ScrollbarRounding = 2.0f;
+    style.GrabRounding = 2.0f;
+    style.TabRounding = 2.0f;
+
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 1.0f;
+    style.PopupBorderSize = 1.0f;
+
+    // --- 3. The Gruvbox Dark Hard Palette ---
+    // Background: #1d2021 (Dark Hard) | Foreground: #ebdbb2
+    // Red: #fb4934 | Green: #b8bb26 | Yellow: #fabd2f | Blue: #83a598
+    // Gray: #928374 | Orange: #fe8019
+
+    // Text
+    colors[ImGuiCol_Text] = ImVec4(0.92f, 0.86f, 0.70f, 1.00f); // #ebdbb2
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.57f, 0.51f, 0.45f, 1.00f); // #928374
+
+    // Backgrounds
+    colors[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f); // #1d2021
+    colors[ImGuiCol_ChildBg] = ImVec4(0.11f, 0.13f, 0.13f, 0.00f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.11f, 0.13f, 0.13f, 0.95f);
+
+    // Borders
+    colors[ImGuiCol_Border] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f); // #504945
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+
+    // Frames
+    colors[ImGuiCol_FrameBg] = ImVec4(0.24f, 0.22f, 0.21f, 1.00f); // #3c3836
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f); // #504945
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.40f, 0.36f, 0.33f, 1.00f); // #665c54
+
+    // Title Bars
+    colors[ImGuiCol_TitleBg] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f);
+
+    // Menus
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.15f, 0.14f, 0.13f, 1.00f); // #282828
+
+    // Scrollbars
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.40f, 0.36f, 0.33f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.57f, 0.51f, 0.45f, 1.00f);
+
+    // Interactables
+    colors[ImGuiCol_CheckMark] = ImVec4(0.72f, 0.73f, 0.15f, 1.00f); // #b8bb26 (Green)
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.65f, 0.60f, 1.00f); // #83a598 (Blue)
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.55f, 0.73f, 0.67f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.98f, 0.29f, 0.20f, 1.00f); // #fb4934 (Red)
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.80f, 0.20f, 0.15f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.24f, 0.22f, 0.21f, 1.00f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.40f, 0.36f, 0.33f, 1.00f);
+
+    // Tabs
+    colors[ImGuiCol_Tab] = ImVec4(0.24f, 0.22f, 0.21f, 1.00f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+
+    // Misc
+    colors[ImGuiCol_PlotLines] = ImVec4(0.98f, 0.74f, 0.18f, 1.00f); // #fabd2f (Yellow)
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    colors[ImGuiCol_NavHighlight] = ImVec4(0.98f, 0.29f, 0.20f, 1.00f);
+
+#ifdef IMGUI_HAS_DOCK
+    colors[ImGuiCol_DockingPreview] = ImVec4(0.72f, 0.73f, 0.15f, 0.50f);
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.11f, 0.13f, 0.13f, 1.00f);
+#endif
 }
