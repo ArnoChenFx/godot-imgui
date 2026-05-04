@@ -2,6 +2,7 @@
 #define IMGUI_GODOT_H
 
 #include <godot_cpp/classes/control.hpp>
+#include <godot_cpp/variant/rid.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/input_event.hpp>
@@ -27,6 +28,8 @@ private:
 	// Rendering
 	RID canvas_item;
 	Ref<ImageTexture> font_texture;
+	// Child canvas items reused for per-command clip regions
+	TypedArray<RID> clip_canvas_items;
 
 	// Font configuration
 	float font_size;

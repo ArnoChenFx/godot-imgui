@@ -216,6 +216,12 @@ ImGuiGodot::~ImGuiGodot() {
 		ImGui::DestroyContext(imgui_context);
 		imgui_context = nullptr;
 	}
+
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (int i = 0; i < clip_canvas_items.size(); i++) {
+		rs->free_rid(clip_canvas_items[i]);
+	}
+	clip_canvas_items.clear();
 }
 
 void ImGuiGodot::_ready() {
@@ -457,6 +463,14 @@ void ImGuiGodot::create_fonts_texture() {
 	io.Fonts->TexID = (ImTextureID)(uintptr_t)font_texture->get_rid().get_id();
 }
 
+static inline Color imgui_col_to_godot(ImU32 col) {
+	return Color(
+			((col >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f,
+			((col >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f,
+			((col >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f,
+			((col >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f);
+}
+
 void ImGuiGodot::render_draw_data() {
 	ImDrawData *draw_data = ImGui::GetDrawData();
 
@@ -464,11 +478,15 @@ void ImGuiGodot::render_draw_data() {
 		return;
 	}
 
-	// ImGui uses top-left origin, Godot uses top-left too, so no Y-flip needed
+	RenderingServer *rs = RenderingServer::get_singleton();
+	RID parent_ci = get_canvas_item();
+
 	Vector2 clip_off = Vector2(draw_data->DisplayPos.x, draw_data->DisplayPos.y);
 	Vector2 clip_scale = Vector2(draw_data->FramebufferScale.x, draw_data->FramebufferScale.y);
 
-	// Render command lists
+	// Reuse child canvas items for clip regions
+	size_t child_idx = 0;
+
 	for (int n = 0; n < draw_data->CmdListsCount; n++) {
 		const ImDrawList *cmd_list = draw_data->CmdLists[n];
 		const ImDrawVert *vtx_buffer = cmd_list->VtxBuffer.Data;
@@ -479,86 +497,89 @@ void ImGuiGodot::render_draw_data() {
 
 			if (pcmd->UserCallback) {
 				pcmd->UserCallback(cmd_list, pcmd);
-			} else {
-				// Calculate clip rectangle
-				Vector2 clip_min(
-						(pcmd->ClipRect.x - clip_off.x) * clip_scale.x,
-						(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
-				Vector2 clip_max(
-						(pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
-						(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
-
-				// Skip drawing if clipped
-				if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
-					continue;
-				}
-
-				// Draw triangles
-				for (unsigned int i = 0; i < pcmd->ElemCount; i += 3) {
-					// Get the three vertices for this triangle
-					const ImDrawVert &v0 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i + 0]];
-					const ImDrawVert &v1 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i + 1]];
-					const ImDrawVert &v2 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i + 2]];
-
-					// Convert to Godot format
-					Vector2 p0(v0.pos.x, v0.pos.y);
-					Vector2 p1(v1.pos.x, v1.pos.y);
-					Vector2 p2(v2.pos.x, v2.pos.y);
-
-					// Convert colors from RGBA packed to Godot Color
-					Color c0(
-							((v0.col >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f,
-							((v0.col >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f,
-							((v0.col >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f,
-							((v0.col >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f);
-					Color c1(
-							((v1.col >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f,
-							((v1.col >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f,
-							((v1.col >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f,
-							((v1.col >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f);
-					Color c2(
-							((v2.col >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f,
-							((v2.col >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f,
-							((v2.col >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f,
-							((v2.col >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f);
-
-					// UV coordinates
-					Vector2 uv0(v0.uv.x, v0.uv.y);
-					Vector2 uv1(v1.uv.x, v1.uv.y);
-					Vector2 uv2(v2.uv.x, v2.uv.y);
-
-					// Prepare arrays for draw_primitive
-					PackedVector2Array points;
-					points.push_back(p0);
-					points.push_back(p1);
-					points.push_back(p2);
-
-					PackedColorArray colors;
-					colors.push_back(c0);
-					colors.push_back(c1);
-					colors.push_back(c2);
-
-					PackedVector2Array uvs;
-					uvs.push_back(uv0);
-					uvs.push_back(uv1);
-					uvs.push_back(uv2);
-
-					// Get texture if available
-					Ref<Texture2D> texture;
-					ImTextureID tex_id = pcmd->GetTexID();
-					if (tex_id) {
-						// Use font texture if texture ID matches
-						if (font_texture.is_valid() &&
-								tex_id == (ImTextureID)(uintptr_t)font_texture->get_rid().get_id()) {
-							texture = font_texture;
-						}
-					}
-
-					// Draw the triangle
-					draw_primitive(points, colors, uvs, texture);
-				}
+				continue;
 			}
+
+			Vector2 clip_min(
+					(pcmd->ClipRect.x - clip_off.x) * clip_scale.x,
+					(pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
+			Vector2 clip_max(
+					(pcmd->ClipRect.z - clip_off.x) * clip_scale.x,
+					(pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+
+			if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
+				continue;
+			}
+
+			// Get or create a child canvas item for this clip region
+			RID ci;
+			if (child_idx < clip_canvas_items.size()) {
+				ci = clip_canvas_items[child_idx];
+			} else {
+				ci = rs->canvas_item_create();
+				rs->canvas_item_set_parent(ci, parent_ci);
+				clip_canvas_items.push_back(ci);
+			}
+			child_idx++;
+
+			// Set clip rect on the child canvas item
+			rs->canvas_item_set_clip(ci, true);
+			rs->canvas_item_set_custom_rect(ci, true, Rect2(clip_min, clip_max - clip_min));
+			rs->canvas_item_clear(ci);
+
+			// Batch all triangles in this command into arrays
+			unsigned int tri_count = pcmd->ElemCount / 3;
+
+			PackedVector2Array points;
+			PackedColorArray colors;
+			PackedVector2Array uvs;
+			points.resize(tri_count * 3);
+			colors.resize(tri_count * 3);
+			uvs.resize(tri_count * 3);
+
+			Vector2 *pts_ptr = points.ptrw();
+			Color *col_ptr = colors.ptrw();
+			Vector2 *uv_ptr = uvs.ptrw();
+
+			for (unsigned int i = 0; i < tri_count; i++) {
+				const ImDrawVert &v0 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 0]];
+				const ImDrawVert &v1 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 1]];
+				const ImDrawVert &v2 = vtx_buffer[idx_buffer[pcmd->IdxOffset + i * 3 + 2]];
+
+				unsigned int base = i * 3;
+				pts_ptr[base + 0] = Vector2(v0.pos.x, v0.pos.y);
+				pts_ptr[base + 1] = Vector2(v1.pos.x, v1.pos.y);
+				pts_ptr[base + 2] = Vector2(v2.pos.x, v2.pos.y);
+
+				col_ptr[base + 0] = imgui_col_to_godot(v0.col);
+				col_ptr[base + 1] = imgui_col_to_godot(v1.col);
+				col_ptr[base + 2] = imgui_col_to_godot(v2.col);
+
+				uv_ptr[base + 0] = Vector2(v0.uv.x, v0.uv.y);
+				uv_ptr[base + 1] = Vector2(v1.uv.x, v1.uv.y);
+				uv_ptr[base + 2] = Vector2(v2.uv.x, v2.uv.y);
+			}
+
+			// Resolve texture
+			Ref<Texture2D> texture;
+			ImTextureID tex_id = pcmd->GetTexID();
+			if (tex_id && font_texture.is_valid() &&
+					tex_id == (ImTextureID)(uintptr_t)font_texture->get_rid().get_id()) {
+				texture = font_texture;
+			}
+
+			// Single draw call per ImDrawCmd instead of per triangle
+			rs->canvas_item_add_triangle_array(
+					ci, PackedInt32Array(), points, colors, uvs,
+					PackedInt32Array(), PackedFloat32Array(),
+					texture.is_valid() ? texture->get_rid() : RID(),
+					-1);
 		}
+	}
+
+	// Hide unused child canvas items
+	for (size_t i = child_idx; i < clip_canvas_items.size(); i++) {
+		rs->canvas_item_clear(clip_canvas_items[i]);
 	}
 }
 
