@@ -272,6 +272,7 @@ void ImGuiGodot::_ready() {
 	create_fonts_texture();
 
 	set_anchors_and_offsets_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+	set_clip_contents(true);
 
 	UtilityFunctions::print("ImGui-Godot initialized");
 	initialized = true;
