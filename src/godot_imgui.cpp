@@ -232,7 +232,9 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("node_editor_set_node_position", "id", "pos"), &ImGuiGodot::node_editor_set_node_position);
 	ClassDB::bind_method(D_METHOD("node_editor_get_node_position", "id"), &ImGuiGodot::node_editor_get_node_position);
 	ClassDB::bind_method(D_METHOD("node_editor_get_node_size", "id"), &ImGuiGodot::node_editor_get_node_size);
+	ClassDB::bind_method(D_METHOD("node_editor_set_group_size", "id", "size"), &ImGuiGodot::node_editor_set_group_size);
 	ClassDB::bind_method(D_METHOD("node_editor_center_node_on_screen", "id"), &ImGuiGodot::node_editor_center_node_on_screen);
+	ClassDB::bind_method(D_METHOD("node_editor_group", "size"), &ImGuiGodot::node_editor_group);
 
 	// Node Editor - Pins
 	ClassDB::bind_method(D_METHOD("node_editor_begin_pin", "id", "kind"), &ImGuiGodot::node_editor_begin_pin);
@@ -240,11 +242,19 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("node_editor_pin_rect", "a", "b"), &ImGuiGodot::node_editor_pin_rect);
 	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_rect", "a", "b"), &ImGuiGodot::node_editor_pin_pivot_rect);
 	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_alignment", "alignment"), &ImGuiGodot::node_editor_pin_pivot_alignment);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_size", "size"), &ImGuiGodot::node_editor_pin_pivot_size);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_pivot_scale", "scale"), &ImGuiGodot::node_editor_pin_pivot_scale);
 
 	// Node Editor - Links
 	ClassDB::bind_method(D_METHOD("node_editor_link", "id", "start_pin_id", "end_pin_id", "color", "thickness"), &ImGuiGodot::node_editor_link, DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f));
 	ClassDB::bind_method(D_METHOD("node_editor_delete_link", "id"), &ImGuiGodot::node_editor_delete_link);
 	ClassDB::bind_method(D_METHOD("node_editor_flow", "link_id", "direction"), &ImGuiGodot::node_editor_flow, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("node_editor_get_link_pins", "link_id"), &ImGuiGodot::node_editor_get_link_pins);
+	ClassDB::bind_method(D_METHOD("node_editor_pin_had_any_links", "pin_id"), &ImGuiGodot::node_editor_pin_had_any_links);
+	ClassDB::bind_method(D_METHOD("node_editor_has_any_links_node", "node_id"), &ImGuiGodot::node_editor_has_any_links_node);
+	ClassDB::bind_method(D_METHOD("node_editor_has_any_links_pin", "pin_id"), &ImGuiGodot::node_editor_has_any_links_pin);
+	ClassDB::bind_method(D_METHOD("node_editor_break_links_node", "node_id"), &ImGuiGodot::node_editor_break_links_node);
+	ClassDB::bind_method(D_METHOD("node_editor_break_links_pin", "pin_id"), &ImGuiGodot::node_editor_break_links_pin);
 
 	// Node Editor - Create Interaction
 	ClassDB::bind_method(D_METHOD("node_editor_begin_create", "color", "thickness"), &ImGuiGodot::node_editor_begin_create, DEFVAL(Color(1, 1, 1, 1)), DEFVAL(1.0f));
@@ -263,10 +273,17 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("node_editor_reject_deleted_item"), &ImGuiGodot::node_editor_reject_deleted_item);
 
 	// Node Editor - Selection
+	ClassDB::bind_method(D_METHOD("node_editor_has_selection_changed"), &ImGuiGodot::node_editor_has_selection_changed);
+	ClassDB::bind_method(D_METHOD("node_editor_get_selected_object_count"), &ImGuiGodot::node_editor_get_selected_object_count);
 	ClassDB::bind_method(D_METHOD("node_editor_get_selected_node_count"), &ImGuiGodot::node_editor_get_selected_node_count);
 	ClassDB::bind_method(D_METHOD("node_editor_get_selected_nodes", "max_count"), &ImGuiGodot::node_editor_get_selected_nodes, DEFVAL(256));
+	ClassDB::bind_method(D_METHOD("node_editor_get_selected_links", "max_count"), &ImGuiGodot::node_editor_get_selected_links, DEFVAL(256));
 	ClassDB::bind_method(D_METHOD("node_editor_is_node_selected", "id"), &ImGuiGodot::node_editor_is_node_selected);
+	ClassDB::bind_method(D_METHOD("node_editor_is_link_selected", "id"), &ImGuiGodot::node_editor_is_link_selected);
 	ClassDB::bind_method(D_METHOD("node_editor_select_node", "id", "append"), &ImGuiGodot::node_editor_select_node, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("node_editor_select_link", "id", "append"), &ImGuiGodot::node_editor_select_link, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("node_editor_deselect_node", "id"), &ImGuiGodot::node_editor_deselect_node);
+	ClassDB::bind_method(D_METHOD("node_editor_deselect_link", "id"), &ImGuiGodot::node_editor_deselect_link);
 	ClassDB::bind_method(D_METHOD("node_editor_clear_selection"), &ImGuiGodot::node_editor_clear_selection);
 
 	// Node Editor - Hover / Click
@@ -274,13 +291,33 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("node_editor_get_hovered_pin"), &ImGuiGodot::node_editor_get_hovered_pin);
 	ClassDB::bind_method(D_METHOD("node_editor_get_hovered_link"), &ImGuiGodot::node_editor_get_hovered_link);
 	ClassDB::bind_method(D_METHOD("node_editor_get_double_clicked_node"), &ImGuiGodot::node_editor_get_double_clicked_node);
+	ClassDB::bind_method(D_METHOD("node_editor_get_double_clicked_pin"), &ImGuiGodot::node_editor_get_double_clicked_pin);
+	ClassDB::bind_method(D_METHOD("node_editor_get_double_clicked_link"), &ImGuiGodot::node_editor_get_double_clicked_link);
+	ClassDB::bind_method(D_METHOD("node_editor_is_background_clicked"), &ImGuiGodot::node_editor_is_background_clicked);
+	ClassDB::bind_method(D_METHOD("node_editor_is_background_double_clicked"), &ImGuiGodot::node_editor_is_background_double_clicked);
 	ClassDB::bind_method(D_METHOD("node_editor_show_background_context_menu"), &ImGuiGodot::node_editor_show_background_context_menu);
 	ClassDB::bind_method(D_METHOD("node_editor_show_node_context_menu"), &ImGuiGodot::node_editor_show_node_context_menu);
+	ClassDB::bind_method(D_METHOD("node_editor_show_pin_context_menu"), &ImGuiGodot::node_editor_show_pin_context_menu);
+	ClassDB::bind_method(D_METHOD("node_editor_show_link_context_menu"), &ImGuiGodot::node_editor_show_link_context_menu);
 
 	// Node Editor - Navigation
 	ClassDB::bind_method(D_METHOD("node_editor_navigate_to_content", "duration"), &ImGuiGodot::node_editor_navigate_to_content, DEFVAL(-1.0f));
 	ClassDB::bind_method(D_METHOD("node_editor_navigate_to_selection", "zoom_in", "duration"), &ImGuiGodot::node_editor_navigate_to_selection, DEFVAL(false), DEFVAL(-1.0f));
 	ClassDB::bind_method(D_METHOD("node_editor_get_current_zoom"), &ImGuiGodot::node_editor_get_current_zoom);
+
+	// Node Editor - Shortcuts
+	ClassDB::bind_method(D_METHOD("node_editor_enable_shortcuts", "enable"), &ImGuiGodot::node_editor_enable_shortcuts);
+	ClassDB::bind_method(D_METHOD("node_editor_are_shortcuts_enabled"), &ImGuiGodot::node_editor_are_shortcuts_enabled);
+	ClassDB::bind_method(D_METHOD("node_editor_begin_shortcut"), &ImGuiGodot::node_editor_begin_shortcut);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_cut"), &ImGuiGodot::node_editor_accept_cut);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_copy"), &ImGuiGodot::node_editor_accept_copy);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_paste"), &ImGuiGodot::node_editor_accept_paste);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_duplicate"), &ImGuiGodot::node_editor_accept_duplicate);
+	ClassDB::bind_method(D_METHOD("node_editor_accept_create_node"), &ImGuiGodot::node_editor_accept_create_node);
+	ClassDB::bind_method(D_METHOD("node_editor_get_action_context_size"), &ImGuiGodot::node_editor_get_action_context_size);
+	ClassDB::bind_method(D_METHOD("node_editor_get_action_context_nodes", "max_count"), &ImGuiGodot::node_editor_get_action_context_nodes, DEFVAL(256));
+	ClassDB::bind_method(D_METHOD("node_editor_get_action_context_links", "max_count"), &ImGuiGodot::node_editor_get_action_context_links, DEFVAL(256));
+	ClassDB::bind_method(D_METHOD("node_editor_end_shortcut"), &ImGuiGodot::node_editor_end_shortcut);
 
 	// Node Editor - Style
 	ClassDB::bind_method(D_METHOD("node_editor_push_style_color", "idx", "color"), &ImGuiGodot::node_editor_push_style_color);
@@ -294,10 +331,466 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("node_editor_resume"), &ImGuiGodot::node_editor_resume);
 	ClassDB::bind_method(D_METHOD("node_editor_screen_to_canvas", "pos"), &ImGuiGodot::node_editor_screen_to_canvas);
 	ClassDB::bind_method(D_METHOD("node_editor_canvas_to_screen", "pos"), &ImGuiGodot::node_editor_canvas_to_screen);
+	ClassDB::bind_method(D_METHOD("node_editor_get_node_background_draw_list", "node_id"), &ImGuiGodot::node_editor_get_node_background_draw_list);
+	ClassDB::bind_method(D_METHOD("node_editor_get_hint_foreground_draw_list"), &ImGuiGodot::node_editor_get_hint_foreground_draw_list);
+	ClassDB::bind_method(D_METHOD("node_editor_get_hint_background_draw_list"), &ImGuiGodot::node_editor_get_hint_background_draw_list);
+
+	// ImDrawList - Primitives
+	ClassDB::bind_method(D_METHOD("draw_list_add_line", "draw_list", "p1", "p2", "color", "thickness"), &ImGuiGodot::draw_list_add_line, DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("draw_list_add_rect", "draw_list", "p_min", "p_max", "color", "rounding", "flags", "thickness"), &ImGuiGodot::draw_list_add_rect, DEFVAL(0.0f), DEFVAL(0), DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("draw_list_add_rect_filled", "draw_list", "p_min", "p_max", "color", "rounding", "flags"), &ImGuiGodot::draw_list_add_rect_filled, DEFVAL(0.0f), DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("draw_list_add_circle", "draw_list", "center", "radius", "color", "segments", "thickness"), &ImGuiGodot::draw_list_add_circle, DEFVAL(0), DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("draw_list_add_circle_filled", "draw_list", "center", "radius", "color", "segments"), &ImGuiGodot::draw_list_add_circle_filled, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("draw_list_add_triangle", "draw_list", "p1", "p2", "p3", "color", "thickness"), &ImGuiGodot::draw_list_add_triangle, DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("draw_list_add_triangle_filled", "draw_list", "p1", "p2", "p3", "color"), &ImGuiGodot::draw_list_add_triangle_filled);
+	ClassDB::bind_method(D_METHOD("draw_list_add_text", "draw_list", "pos", "color", "text"), &ImGuiGodot::draw_list_add_text);
+	ClassDB::bind_method(D_METHOD("draw_list_add_bezier_cubic", "draw_list", "p1", "p2", "p3", "p4", "color", "thickness", "segments"), &ImGuiGodot::draw_list_add_bezier_cubic, DEFVAL(1.0f), DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("draw_list_add_bezier_quadratic", "draw_list", "p1", "p2", "p3", "color", "thickness", "segments"), &ImGuiGodot::draw_list_add_bezier_quadratic, DEFVAL(1.0f), DEFVAL(0));
+
+	// ImDrawList - Path
+	ClassDB::bind_method(D_METHOD("draw_list_path_clear", "draw_list"), &ImGuiGodot::draw_list_path_clear);
+	ClassDB::bind_method(D_METHOD("draw_list_path_line_to", "draw_list", "pos"), &ImGuiGodot::draw_list_path_line_to);
+	ClassDB::bind_method(D_METHOD("draw_list_path_stroke", "draw_list", "color", "flags", "thickness"), &ImGuiGodot::draw_list_path_stroke, DEFVAL(0), DEFVAL(1.0f));
+	ClassDB::bind_method(D_METHOD("draw_list_path_fill_convex", "draw_list", "color"), &ImGuiGodot::draw_list_path_fill_convex);
+	ClassDB::bind_method(D_METHOD("draw_list_path_arc_to", "draw_list", "center", "radius", "a_min", "a_max", "segments"), &ImGuiGodot::draw_list_path_arc_to, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("draw_list_path_rect", "draw_list", "rect_min", "rect_max", "rounding", "flags"), &ImGuiGodot::draw_list_path_rect, DEFVAL(0.0f), DEFVAL(0));
+
+	// ImDrawList - Channels
+	ClassDB::bind_method(D_METHOD("draw_list_channels_split", "draw_list", "count"), &ImGuiGodot::draw_list_channels_split);
+	ClassDB::bind_method(D_METHOD("draw_list_channels_set_current", "draw_list", "channel_index"), &ImGuiGodot::draw_list_channels_set_current);
+	ClassDB::bind_method(D_METHOD("draw_list_channels_merge", "draw_list"), &ImGuiGodot::draw_list_channels_merge);
 
 	// Font configuration
 	ClassDB::bind_method(D_METHOD("set_chinese_font_path", "path"), &ImGuiGodot::set_chinese_font_path);
 	ClassDB::bind_method(D_METHOD("set_font_size", "size"), &ImGuiGodot::set_font_size);
+
+	// =========================================================================
+	// Enum Bindings
+	// =========================================================================
+
+	// WindowFlags
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_TITLE_BAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_RESIZE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_MOVE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_SCROLLBAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_SCROLL_WITH_MOUSE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_COLLAPSE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_ALWAYS_AUTO_RESIZE);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_BACKGROUND);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_SAVED_SETTINGS);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_MOUSE_INPUTS);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_MENU_BAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_HORIZONTAL_SCROLLBAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_FOCUS_ON_APPEARING);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_BRING_TO_FRONT_ON_FOCUS);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_ALWAYS_VERTICAL_SCROLLBAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_ALWAYS_HORIZONTAL_SCROLLBAR);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_NAV_INPUTS);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_NAV_FOCUS);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_UNSAVED_DOCUMENT);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_DOCKING);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_NAV);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_DECORATION);
+	BIND_BITFIELD_FLAG(WINDOW_FLAGS_NO_INPUTS);
+
+	// ChildFlags
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_BORDERS);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_ALWAYS_USE_WINDOW_PADDING);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_RESIZE_X);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_RESIZE_Y);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_AUTO_RESIZE_X);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_AUTO_RESIZE_Y);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_ALWAYS_AUTO_RESIZE);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_FRAME_STYLE);
+	BIND_BITFIELD_FLAG(CHILD_FLAGS_NAV_FLATTENED);
+
+	// ColorEditFlags
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_ALPHA);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_PICKER);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_OPTIONS);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_SMALL_PREVIEW);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_INPUTS);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_TOOLTIP);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_LABEL);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_SIDE_PREVIEW);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_DRAG_DROP);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_BORDER);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_NO_COLOR_MARKERS);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_ALPHA_OPAQUE);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_ALPHA_NO_BG);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_ALPHA_PREVIEW_HALF);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_ALPHA_BAR);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_HDR);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_DISPLAY_RGB);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_DISPLAY_HSV);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_DISPLAY_HEX);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_UINT8);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_FLOAT);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_PICKER_HUE_BAR);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_PICKER_HUE_WHEEL);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_INPUT_RGB);
+	BIND_BITFIELD_FLAG(COLOR_EDIT_FLAGS_INPUT_HSV);
+
+	// ComboFlags
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_POPUP_ALIGN_LEFT);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_HEIGHT_SMALL);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_HEIGHT_REGULAR);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_HEIGHT_LARGE);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_HEIGHT_LARGEST);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_NO_ARROW_BUTTON);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_NO_PREVIEW);
+	BIND_BITFIELD_FLAG(COMBO_FLAGS_WIDTH_FIT_PREVIEW);
+
+	// TreeNodeFlags
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_SELECTED);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_FRAMED);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_ALLOW_OVERLAP);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_NO_TREE_PUSH_ON_OPEN);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_NO_AUTO_OPEN_ON_LOG);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_DEFAULT_OPEN);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_OPEN_ON_DOUBLE_CLICK);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_OPEN_ON_ARROW);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_LEAF);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_BULLET);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_FRAME_PADDING);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_SPAN_AVAIL_WIDTH);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_SPAN_FULL_WIDTH);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_SPAN_LABEL_WIDTH);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_SPAN_ALL_COLUMNS);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_LABEL_SPAN_ALL_COLUMNS);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_NAV_LEFT_JUMPS_TO_PARENT);
+	BIND_BITFIELD_FLAG(TREE_NODE_FLAGS_COLLAPSING_HEADER);
+
+	// PopupFlags
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_MOUSE_BUTTON_LEFT);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_MOUSE_BUTTON_RIGHT);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_MOUSE_BUTTON_MIDDLE);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_NO_REOPEN);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_NO_OPEN_OVER_EXISTING_POPUP);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_NO_OPEN_OVER_ITEMS);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_ANY_POPUP_ID);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_ANY_POPUP_LEVEL);
+	BIND_BITFIELD_FLAG(POPUP_FLAGS_ANY_POPUP);
+
+	// FocusedFlags
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_CHILD_WINDOWS);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_ROOT_WINDOW);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_ANY_WINDOW);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_NO_POPUP_HIERARCHY);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_DOCK_HIERARCHY);
+	BIND_BITFIELD_FLAG(FOCUSED_FLAGS_ROOT_AND_CHILD_WINDOWS);
+
+	// HoveredFlags
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_CHILD_WINDOWS);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ROOT_WINDOW);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ANY_WINDOW);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_NO_POPUP_HIERARCHY);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_DOCK_HIERARCHY);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_BLOCKED_BY_POPUP);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_BLOCKED_BY_ACTIVE_ITEM);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_OVERLAPPED_BY_ITEM);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_OVERLAPPED_BY_WINDOW);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_DISABLED);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_NO_NAV_OVERRIDE);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ALLOW_WHEN_OVERLAPPED);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_RECT_ONLY);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_ROOT_AND_CHILD_WINDOWS);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_FOR_TOOLTIP);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_STATIONARY);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_DELAY_NONE);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_DELAY_SHORT);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_DELAY_NORMAL);
+	BIND_BITFIELD_FLAG(HOVERED_FLAGS_NO_SHARED_DELAY);
+
+	// TabBarFlags
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_REORDERABLE);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_AUTO_SELECT_NEW_TABS);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_TAB_LIST_POPUP_BUTTON);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_NO_CLOSE_WITH_MIDDLE_MOUSE_BUTTON);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_NO_TAB_LIST_SCROLLING_BUTTONS);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_NO_TOOLTIP);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_DRAW_SELECTED_OVERLINE);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_FITTING_POLICY_MIXED);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_FITTING_POLICY_SHRINK);
+	BIND_BITFIELD_FLAG(TAB_BAR_FLAGS_FITTING_POLICY_SCROLL);
+
+	// TabItemFlags
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_UNSAVED_DOCUMENT);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_SET_SELECTED);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NO_CLOSE_WITH_MIDDLE_MOUSE_BUTTON);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NO_PUSH_ID);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NO_TOOLTIP);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NO_REORDER);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_LEADING);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_TRAILING);
+	BIND_BITFIELD_FLAG(TAB_ITEM_FLAGS_NO_ASSUMED_CLOSURE);
+
+	// TableFlags
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_RESIZABLE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_REORDERABLE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_HIDEABLE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SORTABLE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_SAVED_SETTINGS);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_CONTEXT_MENU_IN_BODY);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_ROW_BG);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_INNER_H);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_OUTER_H);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_INNER_V);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_OUTER_V);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_H);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_V);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_INNER);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS_OUTER);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_BORDERS);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_BORDERS_IN_BODY);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_BORDERS_IN_BODY_UNTIL_RESIZE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SIZING_FIXED_FIT);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SIZING_FIXED_SAME);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SIZING_STRETCH_PROP);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SIZING_STRETCH_SAME);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_HOST_EXTEND_X);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_HOST_EXTEND_Y);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_KEEP_COLUMNS_VISIBLE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_PRECISE_WIDTHS);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_CLIP);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_PAD_OUTER_X);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_PAD_OUTER_X);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_NO_PAD_INNER_X);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SCROLL_X);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SCROLL_Y);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SORT_MULTI);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_SORT_TRISTATE);
+	BIND_BITFIELD_FLAG(TABLE_FLAGS_HIGHLIGHT_HOVERED_COLUMN);
+
+	// TableColumnFlags
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_DISABLED);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_DEFAULT_HIDE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_DEFAULT_SORT);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_WIDTH_STRETCH);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_WIDTH_FIXED);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_RESIZE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_REORDER);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_HIDE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_CLIP);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_SORT);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_SORT_ASCENDING);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_SORT_DESCENDING);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_HEADER_LABEL);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_NO_HEADER_WIDTH);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_PREFER_SORT_ASCENDING);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_PREFER_SORT_DESCENDING);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_INDENT_ENABLE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_INDENT_DISABLE);
+	BIND_BITFIELD_FLAG(TABLE_COLUMN_FLAGS_ANGLED_HEADER);
+
+	// DockNodeFlags
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_NONE);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_KEEP_ALIVE_ONLY);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_NO_DOCKING_OVER_CENTRAL_NODE);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_PASSTHRU_CENTRAL_NODE);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_NO_DOCKING_SPLIT);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_NO_RESIZE);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_AUTO_HIDE_TAB_BAR);
+	BIND_BITFIELD_FLAG(DOCK_NODE_FLAGS_NO_UNDOCKING);
+
+	// Cond
+	BIND_ENUM_CONSTANT(COND_NONE);
+	BIND_ENUM_CONSTANT(COND_ALWAYS);
+	BIND_ENUM_CONSTANT(COND_ONCE);
+	BIND_ENUM_CONSTANT(COND_FIRST_USE_EVER);
+	BIND_ENUM_CONSTANT(COND_APPEARING);
+
+	// Dir
+	BIND_ENUM_CONSTANT(DIR_NONE);
+	BIND_ENUM_CONSTANT(DIR_LEFT);
+	BIND_ENUM_CONSTANT(DIR_RIGHT);
+	BIND_ENUM_CONSTANT(DIR_UP);
+	BIND_ENUM_CONSTANT(DIR_DOWN);
+
+	// MouseButton
+	BIND_ENUM_CONSTANT(MOUSE_BUTTON_LEFT);
+	BIND_ENUM_CONSTANT(MOUSE_BUTTON_RIGHT);
+	BIND_ENUM_CONSTANT(MOUSE_BUTTON_MIDDLE);
+	BIND_ENUM_CONSTANT(MOUSE_BUTTON_WHEEL_UP);
+	BIND_ENUM_CONSTANT(MOUSE_BUTTON_WHEEL_DOWN);
+
+	// StyleColor
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TEXT);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TEXT_DISABLED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_WINDOW_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_CHILD_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_POPUP_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_BORDER);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_BORDER_SHADOW);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_FRAME_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_FRAME_BG_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_FRAME_BG_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TITLE_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TITLE_BG_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TITLE_BG_COLLAPSED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_MENU_BAR_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SCROLLBAR_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SCROLLBAR_GRAB);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SCROLLBAR_GRAB_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SCROLLBAR_GRAB_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_CHECK_MARK);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SLIDER_GRAB);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SLIDER_GRAB_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_BUTTON);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_BUTTON_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_BUTTON_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_HEADER);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_HEADER_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_HEADER_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SEPARATOR);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SEPARATOR_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_SEPARATOR_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_RESIZE_GRIP);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_RESIZE_GRIP_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_RESIZE_GRIP_ACTIVE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_INPUT_TEXT_CURSOR);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_SELECTED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_SELECTED_OVERLINE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_DIMMED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_DIMMED_SELECTED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TAB_DIMMED_SELECTED_OVERLINE);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_DOCKING_PREVIEW);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_DOCKING_EMPTY_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_PLOT_LINES);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_PLOT_LINES_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_PLOT_HISTOGRAM);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_PLOT_HISTOGRAM_HOVERED);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TABLE_HEADER_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TABLE_BORDER_STRONG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TABLE_BORDER_LIGHT);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TABLE_ROW_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TABLE_ROW_BG_ALT);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TEXT_LINK);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TEXT_SELECTED_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_TREE_LINES);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_DRAG_DROP_TARGET);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_DRAG_DROP_TARGET_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_UNSAVED_MARKER);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_NAV_CURSOR);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_NAV_WINDOWING_HIGHLIGHT);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_NAV_WINDOWING_DIM_BG);
+	BIND_ENUM_CONSTANT(STYLE_COLOR_MODAL_WINDOW_DIM_BG);
+
+	// StyleVar
+	BIND_ENUM_CONSTANT(STYLE_VAR_ALPHA);
+	BIND_ENUM_CONSTANT(STYLE_VAR_DISABLED_ALPHA);
+	BIND_ENUM_CONSTANT(STYLE_VAR_WINDOW_PADDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_WINDOW_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_WINDOW_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_WINDOW_MIN_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_WINDOW_TITLE_ALIGN);
+	BIND_ENUM_CONSTANT(STYLE_VAR_CHILD_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_CHILD_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_POPUP_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_POPUP_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_FRAME_PADDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_FRAME_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_FRAME_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_ITEM_SPACING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_ITEM_INNER_SPACING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_INDENT_SPACING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_CELL_PADDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SCROLLBAR_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SCROLLBAR_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SCROLLBAR_PADDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_GRAB_MIN_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_GRAB_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_IMAGE_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_IMAGE_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_MIN_WIDTH_BASE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_MIN_WIDTH_SHRINK);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_BAR_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TAB_BAR_OVERLINE_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TABLE_ANGLED_HEADERS_ANGLE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TABLE_ANGLED_HEADERS_TEXT_ALIGN);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TREE_LINES_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_TREE_LINES_ROUNDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_BUTTON_TEXT_ALIGN);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SELECTABLE_TEXT_ALIGN);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SEPARATOR_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SEPARATOR_TEXT_BORDER_SIZE);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SEPARATOR_TEXT_ALIGN);
+	BIND_ENUM_CONSTANT(STYLE_VAR_SEPARATOR_TEXT_PADDING);
+	BIND_ENUM_CONSTANT(STYLE_VAR_DOCKING_SEPARATOR_SIZE);
+
+	// NodeEditorPinKind
+	BIND_ENUM_CONSTANT(NODE_EDITOR_PIN_KIND_INPUT);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_PIN_KIND_OUTPUT);
+
+	// NodeEditorFlowDirection
+	BIND_ENUM_CONSTANT(NODE_EDITOR_FLOW_DIRECTION_FORWARD);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_FLOW_DIRECTION_BACKWARD);
+
+	// NodeEditorStyleColor
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_BG);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_GRID);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_NODE_BG);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_NODE_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_HOV_NODE_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_SEL_NODE_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_NODE_SEL_RECT);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_NODE_SEL_RECT_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_HOV_LINK_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_SEL_LINK_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_HIGHLIGHT_LINK_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_LINK_SEL_RECT);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_LINK_SEL_RECT_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_PIN_RECT);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_PIN_RECT_BORDER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_FLOW);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_FLOW_MARKER);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_GROUP_BG);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_COLOR_GROUP_BORDER);
+
+	// NodeEditorStyleVar
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_NODE_PADDING);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_NODE_ROUNDING);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_NODE_BORDER_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_HOVERED_NODE_BORDER_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_SELECTED_NODE_BORDER_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_ROUNDING);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_BORDER_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_LINK_STRENGTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_SOURCE_DIRECTION);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_TARGET_DIRECTION);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_SCROLL_DURATION);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_FLOW_MARKER_DISTANCE);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_FLOW_SPEED);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_FLOW_DURATION);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIVOT_ALIGNMENT);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIVOT_SIZE);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIVOT_SCALE);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_CORNERS);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_RADIUS);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_ARROW_SIZE);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_PIN_ARROW_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_GROUP_ROUNDING);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_GROUP_BORDER_WIDTH);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_HIGHLIGHT_CONNECTED_LINKS);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_SNAP_LINK_TO_PIN_DIR);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_HOVERED_NODE_BORDER_OFFSET);
+	BIND_ENUM_CONSTANT(NODE_EDITOR_STYLE_VAR_SELECTED_NODE_BORDER_OFFSET);
 }
 
 int ImGuiGodot::get_dock_space_id() const {
@@ -1645,7 +2138,7 @@ int ImGuiGodot::dock_builder_get_central_node(int node_id) {
 // Node Editor - Lifecycle
 int64_t ImGuiGodot::node_editor_create_editor() {
 	ax::NodeEditor::Config config;
-	config.ContextMenuButtonIndex = -1; // Disable built-in context menu (handle via GDScript)
+	// config.ContextMenuButtonIndex = -1; // Disable built-in context menu (handle via GDScript)
 	auto *ctx = ax::NodeEditor::CreateEditor(&config);
 	return reinterpret_cast<int64_t>(ctx);
 }
@@ -1693,6 +2186,11 @@ Vector2 ImGuiGodot::node_editor_get_node_position(int64_t id) {
 	return Vector2(p.x, p.y);
 }
 
+void ImGuiGodot::node_editor_set_group_size(int64_t id, const Vector2 &size) {
+	if (!initialized) return;
+	ax::NodeEditor::SetGroupSize(ax::NodeEditor::NodeId(id), ImVec2(size.x, size.y));
+}
+
 Vector2 ImGuiGodot::node_editor_get_node_size(int64_t id) {
 	if (!initialized) return Vector2();
 	auto s = ax::NodeEditor::GetNodeSize(ax::NodeEditor::NodeId(id));
@@ -1702,6 +2200,11 @@ Vector2 ImGuiGodot::node_editor_get_node_size(int64_t id) {
 void ImGuiGodot::node_editor_center_node_on_screen(int64_t id) {
 	if (!initialized) return;
 	ax::NodeEditor::CenterNodeOnScreen(ax::NodeEditor::NodeId(id));
+}
+
+void ImGuiGodot::node_editor_group(const Vector2 &size) {
+	if (!initialized) return;
+	ax::NodeEditor::Group(ImVec2(size.x, size.y));
 }
 
 // Node Editor - Pins
@@ -1730,6 +2233,16 @@ void ImGuiGodot::node_editor_pin_pivot_alignment(const Vector2 &alignment) {
 	ax::NodeEditor::PinPivotAlignment(ImVec2(alignment.x, alignment.y));
 }
 
+void ImGuiGodot::node_editor_pin_pivot_size(const Vector2 &size) {
+	if (!initialized) return;
+	ax::NodeEditor::PinPivotSize(ImVec2(size.x, size.y));
+}
+
+void ImGuiGodot::node_editor_pin_pivot_scale(const Vector2 &scale) {
+	if (!initialized) return;
+	ax::NodeEditor::PinPivotScale(ImVec2(scale.x, scale.y));
+}
+
 // Node Editor - Links
 bool ImGuiGodot::node_editor_link(int64_t id, int64_t start_pin_id, int64_t end_pin_id, const Color &color, float thickness) {
 	if (!initialized) return false;
@@ -1750,6 +2263,46 @@ bool ImGuiGodot::node_editor_delete_link(int64_t id) {
 void ImGuiGodot::node_editor_flow(int64_t link_id, int direction) {
 	if (!initialized) return;
 	ax::NodeEditor::Flow(ax::NodeEditor::LinkId(link_id), static_cast<ax::NodeEditor::FlowDirection>(direction));
+}
+
+Array ImGuiGodot::node_editor_get_link_pins(int64_t link_id) {
+	Array result;
+	if (!initialized) {
+		result.push_back(0);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::PinId start_id, end_id;
+	bool ok = ax::NodeEditor::GetLinkPins(ax::NodeEditor::LinkId(link_id), &start_id, &end_id);
+	result.push_back(ok);
+	result.push_back((int64_t)start_id.Get());
+	result.push_back((int64_t)end_id.Get());
+	return result;
+}
+
+bool ImGuiGodot::node_editor_pin_had_any_links(int64_t pin_id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::PinHadAnyLinks(ax::NodeEditor::PinId(pin_id));
+}
+
+bool ImGuiGodot::node_editor_has_any_links_node(int64_t node_id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::HasAnyLinks(ax::NodeEditor::NodeId(node_id));
+}
+
+bool ImGuiGodot::node_editor_has_any_links_pin(int64_t pin_id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::HasAnyLinks(ax::NodeEditor::PinId(pin_id));
+}
+
+int ImGuiGodot::node_editor_break_links_node(int64_t node_id) {
+	if (!initialized) return 0;
+	return ax::NodeEditor::BreakLinks(ax::NodeEditor::NodeId(node_id));
+}
+
+int ImGuiGodot::node_editor_break_links_pin(int64_t pin_id) {
+	if (!initialized) return 0;
+	return ax::NodeEditor::BreakLinks(ax::NodeEditor::PinId(pin_id));
 }
 
 // Node Editor - Create Interaction
@@ -1858,9 +2411,21 @@ void ImGuiGodot::node_editor_reject_deleted_item() {
 }
 
 // Node Editor - Selection
-int ImGuiGodot::node_editor_get_selected_node_count() {
+bool ImGuiGodot::node_editor_has_selection_changed() {
+	if (!initialized) return false;
+	return ax::NodeEditor::HasSelectionChanged();
+}
+
+int ImGuiGodot::node_editor_get_selected_object_count() {
 	if (!initialized) return 0;
 	return ax::NodeEditor::GetSelectedObjectCount();
+}
+
+int ImGuiGodot::node_editor_get_selected_node_count() {
+	if (!initialized) return 0;
+	// Use GetSelectedNodes with a stack buffer to count only nodes
+	ax::NodeEditor::NodeId nodes[256];
+	return ax::NodeEditor::GetSelectedNodes(nodes, 256);
 }
 
 PackedInt64Array ImGuiGodot::node_editor_get_selected_nodes(int max_count) {
@@ -1874,14 +2439,45 @@ PackedInt64Array ImGuiGodot::node_editor_get_selected_nodes(int max_count) {
 	return result;
 }
 
+PackedInt64Array ImGuiGodot::node_editor_get_selected_links(int max_count) {
+	PackedInt64Array result;
+	if (!initialized) return result;
+	std::vector<ax::NodeEditor::LinkId> links(max_count);
+	int count = ax::NodeEditor::GetSelectedLinks(links.data(), max_count);
+	for (int i = 0; i < count; i++) {
+		result.push_back((int64_t)links[i].Get());
+	}
+	return result;
+}
+
 bool ImGuiGodot::node_editor_is_node_selected(int64_t id) {
 	if (!initialized) return false;
 	return ax::NodeEditor::IsNodeSelected(ax::NodeEditor::NodeId(id));
 }
 
+bool ImGuiGodot::node_editor_is_link_selected(int64_t id) {
+	if (!initialized) return false;
+	return ax::NodeEditor::IsLinkSelected(ax::NodeEditor::LinkId(id));
+}
+
 void ImGuiGodot::node_editor_select_node(int64_t id, bool append) {
 	if (!initialized) return;
 	ax::NodeEditor::SelectNode(ax::NodeEditor::NodeId(id), append);
+}
+
+void ImGuiGodot::node_editor_select_link(int64_t id, bool append) {
+	if (!initialized) return;
+	ax::NodeEditor::SelectLink(ax::NodeEditor::LinkId(id), append);
+}
+
+void ImGuiGodot::node_editor_deselect_node(int64_t id) {
+	if (!initialized) return;
+	ax::NodeEditor::DeselectNode(ax::NodeEditor::NodeId(id));
+}
+
+void ImGuiGodot::node_editor_deselect_link(int64_t id) {
+	if (!initialized) return;
+	ax::NodeEditor::DeselectLink(ax::NodeEditor::LinkId(id));
 }
 
 void ImGuiGodot::node_editor_clear_selection() {
@@ -1910,6 +2506,26 @@ int64_t ImGuiGodot::node_editor_get_double_clicked_node() {
 	return (int64_t)ax::NodeEditor::GetDoubleClickedNode().Get();
 }
 
+int64_t ImGuiGodot::node_editor_get_double_clicked_pin() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetDoubleClickedPin().Get();
+}
+
+int64_t ImGuiGodot::node_editor_get_double_clicked_link() {
+	if (!initialized) return 0;
+	return (int64_t)ax::NodeEditor::GetDoubleClickedLink().Get();
+}
+
+bool ImGuiGodot::node_editor_is_background_clicked() {
+	if (!initialized) return false;
+	return ax::NodeEditor::IsBackgroundClicked();
+}
+
+bool ImGuiGodot::node_editor_is_background_double_clicked() {
+	if (!initialized) return false;
+	return ax::NodeEditor::IsBackgroundDoubleClicked();
+}
+
 bool ImGuiGodot::node_editor_show_background_context_menu() {
 	if (!initialized) return false;
 	return ax::NodeEditor::ShowBackgroundContextMenu();
@@ -1929,6 +2545,34 @@ Array ImGuiGodot::node_editor_show_node_context_menu() {
 	return result;
 }
 
+Array ImGuiGodot::node_editor_show_pin_context_menu() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::PinId pin_id;
+	bool ok = ax::NodeEditor::ShowPinContextMenu(&pin_id);
+	result.push_back(ok);
+	result.push_back((int64_t)pin_id.Get());
+	return result;
+}
+
+Array ImGuiGodot::node_editor_show_link_context_menu() {
+	Array result;
+	if (!initialized) {
+		result.push_back(false);
+		result.push_back(0);
+		return result;
+	}
+	ax::NodeEditor::LinkId link_id;
+	bool ok = ax::NodeEditor::ShowLinkContextMenu(&link_id);
+	result.push_back(ok);
+	result.push_back((int64_t)link_id.Get());
+	return result;
+}
+
 // Node Editor - Navigation
 void ImGuiGodot::node_editor_navigate_to_content(float duration) {
 	if (!initialized) return;
@@ -1943,6 +2587,79 @@ void ImGuiGodot::node_editor_navigate_to_selection(bool zoom_in, float duration)
 float ImGuiGodot::node_editor_get_current_zoom() {
 	if (!initialized) return 1.0f;
 	return ax::NodeEditor::GetCurrentZoom();
+}
+
+// Node Editor - Shortcuts
+void ImGuiGodot::node_editor_enable_shortcuts(bool enable) {
+	if (!initialized) return;
+	ax::NodeEditor::EnableShortcuts(enable);
+}
+
+bool ImGuiGodot::node_editor_are_shortcuts_enabled() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AreShortcutsEnabled();
+}
+
+bool ImGuiGodot::node_editor_begin_shortcut() {
+	if (!initialized) return false;
+	return ax::NodeEditor::BeginShortcut();
+}
+
+bool ImGuiGodot::node_editor_accept_cut() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptCut();
+}
+
+bool ImGuiGodot::node_editor_accept_copy() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptCopy();
+}
+
+bool ImGuiGodot::node_editor_accept_paste() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptPaste();
+}
+
+bool ImGuiGodot::node_editor_accept_duplicate() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptDuplicate();
+}
+
+bool ImGuiGodot::node_editor_accept_create_node() {
+	if (!initialized) return false;
+	return ax::NodeEditor::AcceptCreateNode();
+}
+
+int ImGuiGodot::node_editor_get_action_context_size() {
+	if (!initialized) return 0;
+	return ax::NodeEditor::GetActionContextSize();
+}
+
+PackedInt64Array ImGuiGodot::node_editor_get_action_context_nodes(int max_count) {
+	PackedInt64Array result;
+	if (!initialized) return result;
+	std::vector<ax::NodeEditor::NodeId> nodes(max_count);
+	int count = ax::NodeEditor::GetActionContextNodes(nodes.data(), max_count);
+	for (int i = 0; i < count; i++) {
+		result.push_back((int64_t)nodes[i].Get());
+	}
+	return result;
+}
+
+PackedInt64Array ImGuiGodot::node_editor_get_action_context_links(int max_count) {
+	PackedInt64Array result;
+	if (!initialized) return result;
+	std::vector<ax::NodeEditor::LinkId> links(max_count);
+	int count = ax::NodeEditor::GetActionContextLinks(links.data(), max_count);
+	for (int i = 0; i < count; i++) {
+		result.push_back((int64_t)links[i].Get());
+	}
+	return result;
+}
+
+void ImGuiGodot::node_editor_end_shortcut() {
+	if (!initialized) return;
+	ax::NodeEditor::EndShortcut();
 }
 
 // Node Editor - Style
@@ -1992,6 +2709,160 @@ Vector2 ImGuiGodot::node_editor_canvas_to_screen(const Vector2 &pos) {
 	if (!initialized) return pos;
 	auto p = ax::NodeEditor::CanvasToScreen(ImVec2(pos.x, pos.y));
 	return Vector2(p.x, p.y);
+}
+
+int64_t ImGuiGodot::node_editor_get_node_background_draw_list(int64_t node_id) {
+	if (!initialized) return 0;
+	ImDrawList *dl = ax::NodeEditor::GetNodeBackgroundDrawList(ax::NodeEditor::NodeId(node_id));
+	return reinterpret_cast<int64_t>(dl);
+}
+
+int64_t ImGuiGodot::node_editor_get_hint_foreground_draw_list() {
+	if (!initialized) return 0;
+	ImDrawList *dl = ax::NodeEditor::GetHintForegroundDrawList();
+	return reinterpret_cast<int64_t>(dl);
+}
+
+int64_t ImGuiGodot::node_editor_get_hint_background_draw_list() {
+	if (!initialized) return 0;
+	ImDrawList *dl = ax::NodeEditor::GetHintBackgroundDrawList();
+	return reinterpret_cast<int64_t>(dl);
+}
+
+// ImDrawList - Primitives
+void ImGuiGodot::draw_list_add_line(int64_t draw_list, const Vector2 &p1, const Vector2 &p2, const Color &color, float thickness) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddLine(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), ImColor(color.r, color.g, color.b, color.a), thickness);
+}
+
+void ImGuiGodot::draw_list_add_rect(int64_t draw_list, const Vector2 &p_min, const Vector2 &p_max, const Color &color, float rounding, int flags, float thickness) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddRect(ImVec2(p_min.x, p_min.y), ImVec2(p_max.x, p_max.y), ImColor(color.r, color.g, color.b, color.a), rounding, flags, thickness);
+}
+
+void ImGuiGodot::draw_list_add_rect_filled(int64_t draw_list, const Vector2 &p_min, const Vector2 &p_max, const Color &color, float rounding, int flags) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddRectFilled(ImVec2(p_min.x, p_min.y), ImVec2(p_max.x, p_max.y), ImColor(color.r, color.g, color.b, color.a), rounding, flags);
+}
+
+void ImGuiGodot::draw_list_add_circle(int64_t draw_list, const Vector2 &center, float radius, const Color &color, int segments, float thickness) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddCircle(ImVec2(center.x, center.y), radius, ImColor(color.r, color.g, color.b, color.a), segments, thickness);
+}
+
+void ImGuiGodot::draw_list_add_circle_filled(int64_t draw_list, const Vector2 &center, float radius, const Color &color, int segments) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddCircleFilled(ImVec2(center.x, center.y), radius, ImColor(color.r, color.g, color.b, color.a), segments);
+}
+
+void ImGuiGodot::draw_list_add_triangle(int64_t draw_list, const Vector2 &p1, const Vector2 &p2, const Vector2 &p3, const Color &color, float thickness) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddTriangle(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), ImVec2(p3.x, p3.y), ImColor(color.r, color.g, color.b, color.a), thickness);
+}
+
+void ImGuiGodot::draw_list_add_triangle_filled(int64_t draw_list, const Vector2 &p1, const Vector2 &p2, const Vector2 &p3, const Color &color) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddTriangleFilled(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), ImVec2(p3.x, p3.y), ImColor(color.r, color.g, color.b, color.a));
+}
+
+void ImGuiGodot::draw_list_add_text(int64_t draw_list, const Vector2 &pos, const Color &color, const String &text) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddText(ImVec2(pos.x, pos.y), ImColor(color.r, color.g, color.b, color.a), text.utf8().get_data());
+}
+
+void ImGuiGodot::draw_list_add_bezier_cubic(int64_t draw_list, const Vector2 &p1, const Vector2 &p2, const Vector2 &p3, const Vector2 &p4, const Color &color, float thickness, int segments) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddBezierCubic(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), ImVec2(p3.x, p3.y), ImVec2(p4.x, p4.y), ImColor(color.r, color.g, color.b, color.a), thickness, segments);
+}
+
+void ImGuiGodot::draw_list_add_bezier_quadratic(int64_t draw_list, const Vector2 &p1, const Vector2 &p2, const Vector2 &p3, const Color &color, float thickness, int segments) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->AddBezierQuadratic(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), ImVec2(p3.x, p3.y), ImColor(color.r, color.g, color.b, color.a), thickness, segments);
+}
+
+// ImDrawList - Path
+void ImGuiGodot::draw_list_path_clear(int64_t draw_list) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathClear();
+}
+
+void ImGuiGodot::draw_list_path_line_to(int64_t draw_list, const Vector2 &pos) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathLineTo(ImVec2(pos.x, pos.y));
+}
+
+void ImGuiGodot::draw_list_path_stroke(int64_t draw_list, const Color &color, int flags, float thickness) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathStroke(ImColor(color.r, color.g, color.b, color.a), flags, thickness);
+}
+
+void ImGuiGodot::draw_list_path_fill_convex(int64_t draw_list, const Color &color) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathFillConvex(ImColor(color.r, color.g, color.b, color.a));
+}
+
+void ImGuiGodot::draw_list_path_arc_to(int64_t draw_list, const Vector2 &center, float radius, float a_min, float a_max, int segments) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathArcTo(ImVec2(center.x, center.y), radius, a_min, a_max, segments);
+}
+
+void ImGuiGodot::draw_list_path_rect(int64_t draw_list, const Vector2 &rect_min, const Vector2 &rect_max, float rounding, int flags) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->PathRect(ImVec2(rect_min.x, rect_min.y), ImVec2(rect_max.x, rect_max.y), rounding, flags);
+}
+
+// ImDrawList - Channels
+void ImGuiGodot::draw_list_channels_split(int64_t draw_list, int count) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->ChannelsSplit(count);
+}
+
+void ImGuiGodot::draw_list_channels_set_current(int64_t draw_list, int channel_index) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->ChannelsSetCurrent(channel_index);
+}
+
+void ImGuiGodot::draw_list_channels_merge(int64_t draw_list) {
+	if (!initialized) return;
+	auto *dl = reinterpret_cast<ImDrawList *>(draw_list);
+	if (!dl) return;
+	dl->ChannelsMerge();
 }
 
 // Font configuration
