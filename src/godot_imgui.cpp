@@ -40,6 +40,7 @@ void ImGuiGodot::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("text_wrapped", "text"), &ImGuiGodot::text_wrapped);
 	ClassDB::bind_method(D_METHOD("label_text", "label", "text"), &ImGuiGodot::label_text);
 	ClassDB::bind_method(D_METHOD("bullet_text", "text"), &ImGuiGodot::bullet_text);
+	ClassDB::bind_method(D_METHOD("calc_text_size", "text"), &ImGuiGodot::calc_text_size);
 
 	// Widgets: Main
 	ClassDB::bind_method(D_METHOD("button", "label", "size"), &ImGuiGodot::button, DEFVAL(Vector2(0, 0)));
@@ -820,6 +821,13 @@ void ImGuiGodot::bullet_text(const String &text) {
 	if (!initialized)
 		return;
 	ImGui::BulletText("%s", text.utf8().get_data());
+}
+
+Vector2 ImGuiGodot::calc_text_size(const String &text) {
+	if (!initialized)
+		return Vector2(0, 0);
+	ImVec2 size = ImGui::CalcTextSize(text.utf8().get_data());
+	return Vector2(size.x, size.y);
 }
 
 // Widgets: Main
@@ -1637,6 +1645,7 @@ int ImGuiGodot::dock_builder_get_central_node(int node_id) {
 // Node Editor - Lifecycle
 int64_t ImGuiGodot::node_editor_create_editor() {
 	ax::NodeEditor::Config config;
+	config.ContextMenuButtonIndex = -1; // Disable built-in context menu (handle via GDScript)
 	auto *ctx = ax::NodeEditor::CreateEditor(&config);
 	return reinterpret_cast<int64_t>(ctx);
 }

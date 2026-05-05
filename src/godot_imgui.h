@@ -87,6 +87,7 @@ public:
 	void text_wrapped(const String &text);
 	void label_text(const String &label, const String &text);
 	void bullet_text(const String &text);
+	Vector2 calc_text_size(const String &text);
 
 	// Widgets: Main
 	bool button(const String &label, const Vector2 &size = Vector2(0, 0));
