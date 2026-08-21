@@ -86,6 +86,8 @@ cd imgui-godot
 
 ```bash
 git submodule update --init --recursive
+
+git submodule update --remote --recursive
 ```
 
 2. Build for your platform:
